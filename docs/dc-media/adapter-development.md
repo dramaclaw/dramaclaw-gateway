@@ -1,0 +1,82 @@
+# DC 媒体适配器开发指南
+
+本文说明如何在 RelayClaw CE 中为 `DC-Media-Protocol v1` 增加供应商适配。
+协议定义以仓库根目录的 `dc-media-protocol.md` 为准。
+
+## 开始之前
+
+1. 确认 New API 现有适配器是否已经支持目标接口。
+2. 只在公共字段无法正确转换时新增或扩展独立适配器。
+3. 不根据模型名称猜测 DramaClaw 的业务模式。调用形态必须来自素材结构。
+4. 不迁移商业虾驿的计费表达式、调用审计、结果归档或运营功能。
+
+视频请求在 `relay/common.ValidateDCMediaTaskRequest` 中完成规范化、互斥校验和形态
+推断。适配器必须继续保留素材角色：顶层 `image` 是首帧，
+`metadata.reference_images` 始终是参考图，不能把第一张参考图提升为首帧。
+
+## 目录与注册
+
+异步媒体适配器放在 `relay/channel/task/<provider>/`。一个完整适配器通常需要：
+
+- 实现 `relay/channel.TaskAdaptor`；
+- 在 `relay/relay_adaptor.go` 注册渠道类型；
+- 在 `constant/channel.go` 声明渠道编号、名称和默认地址；
+- 为渠道增加协议转换测试；
+- 若供应商支持安全的按任务取消，实现可选的 `channel.TaskCanceller`。
+
+`TaskAdaptor` 的职责分为验证、请求构造、提交响应解析、任务查询和查询响应解析。
+公共任务 ID 与供应商任务 ID 必须分开保存，客户端只能看到 RelayClaw CE 生成的
+`task_*` ID。
+
+## 请求转换
+
+适配器应从 `relaycommon.GetTaskRequest(c)` 取得已经规范化的请求，并按以下顺序处理：
+
+1. 调用 `ValidateDCMediaTaskRequest` 获取调用形态。
+2. 校验供应商自己的素材数量、时长、比例和分辨率限制。
+3. 将每类素材映射到供应商要求的字段或角色。
+4. 保留显式的 `false`、`0` 和空白以外的有效值；可选标量使用指针类型。
+5. 在请求上游前拒绝不支持的组合，不得删除素材后继续提交。
+
+稳定的本地错误应使用 `TaskErrorWrapperLocal` 返回。常用错误码包括：
+
+- `unsupported_media_combination`
+- `invalid_media_request`
+- `invalid_dimensions`
+- `invalid_auto_duration`
+- `task_cancellation_unsupported`
+
+供应商错误可以保留经过处理的 request ID 和可读信息，但不能返回 API Key、鉴权头或
+完整的敏感请求体。
+
+## 异步任务
+
+创建接口成功后，`DoResponse` 返回供应商任务 ID，由任务模型写入
+`PrivateData.UpstreamTaskID`。`FetchTask` 只使用该上游 ID 查询，`ParseTaskResult`
+统一映射为 `QUEUED`、`IN_PROGRESS`、`SUCCESS` 或 `FAILURE`。
+
+结果 URL 写入任务私有数据。需要鉴权或位于局域网的结果应通过
+`/v1/videos/{task_id}/content` 代理，不应把渠道密钥放进 URL。
+
+取消只有在供应商确认指定任务已取消后才能成功。全局中断接口不能实现按任务取消。
+不支持取消时返回 `task_cancellation_unsupported`，不能只修改本地状态。
+
+## 测试要求
+
+每个适配器至少覆盖：
+
+- 文生视频和单图请求；
+- 首帧与参考图角色不混用；
+- 支持的多图、视频和音频组合；
+- 不支持组合在发上游前失败；
+- 公共任务 ID 不泄漏供应商任务 ID；
+- 状态、结果 URL 和错误映射；
+- 若支持取消，覆盖排队、运行中、已结束和重复取消。
+
+常用验证命令：
+
+```bash
+go test ./relay/common ./relay/channel/task/<provider>
+cd relaykit && GOWORK=off go build ./...
+cd web && bun run typecheck && bun run build
+```
