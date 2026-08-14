@@ -145,14 +145,19 @@ func validatePrompt(prompt string) *dto.TaskError {
 // overflow quota calculation into a negative charge.
 const MaxTaskDurationSeconds = 3600
 
-func validateTaskDurationBounds(req TaskSubmitReq) *dto.TaskError {
-	seconds := req.Duration
-	if seconds == 0 && req.Seconds != "" {
-		seconds, _ = strconv.Atoi(req.Seconds)
+func normalizeAndValidateTaskDuration(req *TaskSubmitReq) *dto.TaskError {
+	if req.Seconds != "" && !req.DurationSet {
+		seconds, err := strconv.Atoi(strings.TrimSpace(req.Seconds))
+		if err != nil {
+			return createTaskError(fmt.Errorf("seconds must be a positive integer"), "invalid_seconds", http.StatusBadRequest, true)
+		}
+		req.Duration = seconds
+		req.DurationSet = true
 	}
-	if seconds < 0 || seconds > MaxTaskDurationSeconds {
+	if !req.DurationAuto && req.DurationSet && (req.Duration <= 0 || req.Duration > MaxTaskDurationSeconds) {
 		return createTaskError(fmt.Errorf("seconds must be between 1 and %d", MaxTaskDurationSeconds), "invalid_seconds", http.StatusBadRequest, true)
 	}
+	req.Seconds = ""
 	return nil
 }
 
@@ -172,11 +177,30 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 		Metadata: make(map[string]interface{}),
 	}
 
-	if durationStr := formData.Get("seconds"); durationStr != "" {
-		if duration, err := strconv.Atoi(durationStr); err == nil {
+	if durationStr := firstNonEmptyString(formData.Get("duration"), formData.Get("seconds")); durationStr != "" {
+		req.DurationSet = true
+		if strings.EqualFold(strings.TrimSpace(durationStr), "auto") {
+			req.DurationAuto = true
+		} else if duration, err := strconv.Atoi(durationStr); err == nil {
 			req.Duration = duration
+		} else {
+			return req, fmt.Errorf("duration must be a positive integer, integer string, or auto")
 		}
 	}
+	for key, target := range map[string]*int{
+		"width": &req.Width, "height": &req.Height, "fps": &req.Fps,
+		"seed": &req.Seed, "n": &req.N,
+	} {
+		if raw := strings.TrimSpace(formData.Get(key)); raw != "" {
+			value, parseErr := strconv.Atoi(raw)
+			if parseErr != nil {
+				return req, fmt.Errorf("%s must be an integer", key)
+			}
+			*target = value
+		}
+	}
+	req.ResponseFormat = formData.Get("response_format")
+	req.User = formData.Get("user")
 
 	if images := formData["images"]; len(images) > 0 {
 		req.Images = images
@@ -234,12 +258,19 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 		return taskErr
 	}
 
-	if taskErr := validateTaskDurationBounds(req); taskErr != nil {
+	if taskErr := normalizeAndValidateTaskDuration(&req); taskErr != nil {
 		return taskErr
+	}
+	shape, err := ValidateDCMediaTaskRequest(&req)
+	if err != nil {
+		return createTaskError(err, DCMediaValidationErrorCode(err), http.StatusBadRequest, true)
+	}
+	if req.Image != "" && len(req.Images) == 0 {
+		req.Images = []string{req.Image}
 	}
 
 	action := constant.TaskActionTextGenerate
-	if hasInputReference {
+	if hasInputReference || shape != DCMediaTextToVideo {
 		action = constant.TaskActionGenerate
 	}
 	if strings.HasPrefix(model, "sora-2") {
@@ -275,6 +306,14 @@ func isKnownTaskField(field string) bool {
 		"images":          true,
 		"size":            true,
 		"duration":        true,
+		"seconds":         true,
+		"width":           true,
+		"height":          true,
+		"fps":             true,
+		"seed":            true,
+		"n":               true,
+		"response_format": true,
+		"user":            true,
 		"input_reference": true, // Sora 特有字段
 	}
 	return knownFields[field]
@@ -299,15 +338,25 @@ func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *d
 		return taskErr
 	}
 
-	if taskErr := validateTaskDurationBounds(req); taskErr != nil {
+	if taskErr := normalizeAndValidateTaskDuration(&req); taskErr != nil {
 		return taskErr
 	}
-
-	if len(req.Images) == 0 && strings.TrimSpace(req.Image) != "" {
-		// 兼容单图上传
+	if _, err := ValidateDCMediaTaskRequest(&req); err != nil {
+		return createTaskError(err, DCMediaValidationErrorCode(err), http.StatusBadRequest, true)
+	}
+	if req.Image != "" && len(req.Images) == 0 {
 		req.Images = []string{req.Image}
 	}
 
 	storeTaskRequest(c, info, action, req)
 	return nil
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

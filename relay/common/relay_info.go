@@ -871,11 +871,30 @@ type TaskSubmitReq struct {
 	Mode           string                 `json:"mode,omitempty"`
 	Image          string                 `json:"image,omitempty"`
 	Images         []string               `json:"images,omitempty"`
+	Content        []TaskContentItem      `json:"content,omitempty"`
 	Size           string                 `json:"size,omitempty"`
 	Duration       int                    `json:"duration,omitempty"`
+	DurationAuto   bool                   `json:"-"`
+	DurationSet    bool                   `json:"-"`
 	Seconds        string                 `json:"seconds,omitempty"`
+	Width          int                    `json:"width,omitempty"`
+	Height         int                    `json:"height,omitempty"`
+	Fps            int                    `json:"fps,omitempty"`
+	Seed           int                    `json:"seed,omitempty"`
+	N              int                    `json:"n,omitempty"`
+	ResponseFormat string                 `json:"response_format,omitempty"`
+	User           string                 `json:"user,omitempty"`
 	InputReference string                 `json:"input_reference,omitempty"`
 	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+}
+
+type TaskContentItem struct {
+	Type     string `json:"type,omitempty"`
+	Text     string `json:"text,omitempty"`
+	Role     string `json:"role,omitempty"`
+	ImageURL any    `json:"image_url,omitempty"`
+	VideoURL any    `json:"video_url,omitempty"`
+	AudioURL any    `json:"audio_url,omitempty"`
 }
 
 func (t *TaskSubmitReq) GetPrompt() string {
@@ -883,10 +902,28 @@ func (t *TaskSubmitReq) GetPrompt() string {
 }
 
 func (t *TaskSubmitReq) HasImage() bool {
-	return len(t.Images) > 0
+	return strings.TrimSpace(t.Image) != "" || len(t.Images) > 0
+}
+
+func (t *TaskSubmitReq) AdditionalReferenceImages() []string {
+	primary := strings.TrimSpace(t.Image)
+	if primary == "" {
+		return t.Images
+	}
+	references := make([]string, 0, len(t.Images))
+	for _, image := range t.Images {
+		if strings.TrimSpace(image) == primary {
+			continue
+		}
+		references = append(references, image)
+	}
+	return references
 }
 
 func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
+	t.Duration = 0
+	t.DurationAuto = false
+	t.DurationSet = false
 	type Alias TaskSubmitReq
 	aux := &struct {
 		Metadata json.RawMessage `json:"metadata,omitempty"`
@@ -901,15 +938,22 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 	}
 
 	if len(aux.Duration) > 0 {
+		t.DurationSet = true
 		var durationInt int
 		if err := common.Unmarshal(aux.Duration, &durationInt); err == nil {
 			t.Duration = durationInt
 		} else {
 			var durationStr string
-			if err := common.Unmarshal(aux.Duration, &durationStr); err == nil && durationStr != "" {
-				if v, err := strconv.Atoi(durationStr); err == nil {
-					t.Duration = v
-				}
+			if err := common.Unmarshal(aux.Duration, &durationStr); err != nil {
+				return fmt.Errorf("duration must be a positive integer, integer string, or auto")
+			}
+			durationStr = strings.TrimSpace(durationStr)
+			if strings.EqualFold(durationStr, "auto") {
+				t.DurationAuto = true
+			} else if v, err := strconv.Atoi(durationStr); err == nil {
+				t.Duration = v
+			} else {
+				return fmt.Errorf("duration must be a positive integer, integer string, or auto")
 			}
 		}
 	}
