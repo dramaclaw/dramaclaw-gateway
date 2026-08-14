@@ -11,6 +11,7 @@ const (
 	VideoStatusInProgress = "in_progress"
 	VideoStatusCompleted  = "completed"
 	VideoStatusFailed     = "failed"
+	VideoStatusCancelled  = "cancelled"
 )
 
 type OpenAIVideo struct {

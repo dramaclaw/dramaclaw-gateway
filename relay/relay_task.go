@@ -2,12 +2,14 @@ package relay
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -21,6 +23,67 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
+
+func RelayTaskCancel(c *gin.Context) *dto.TaskError {
+	taskID := strings.TrimSpace(c.Param("task_id"))
+	if taskID == "" {
+		return service.TaskErrorWrapperLocal(errors.New("task_id is required"), "invalid_request", http.StatusBadRequest)
+	}
+	task, exists, err := model.GetByTaskId(c.GetInt("id"), taskID)
+	if err != nil {
+		return service.TaskErrorWrapper(err, "get_task_failed", http.StatusInternalServerError)
+	}
+	if !exists {
+		return service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusNotFound)
+	}
+	if task.Status == model.TaskStatusCancelled {
+		c.JSON(http.StatusOK, task.ToOpenAIVideo())
+		return nil
+	}
+	if task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure {
+		return service.TaskErrorWrapperLocal(channel.ErrTaskNotCancellable, "task_not_cancellable", http.StatusConflict)
+	}
+
+	channelModel, err := model.GetChannelById(task.ChannelId, true)
+	if err != nil {
+		return service.TaskErrorWrapperLocal(err, "channel_not_found", http.StatusBadRequest)
+	}
+	adaptor := GetTaskAdaptor(task.Platform)
+	canceller, ok := adaptor.(channel.TaskCanceller)
+	if !ok {
+		return service.TaskErrorWrapperLocal(channel.ErrTaskCancellationUnsupported, "task_cancellation_unsupported", http.StatusNotImplemented)
+	}
+	baseURL := channelModel.GetBaseURL()
+	if baseURL == "" {
+		baseURL = constant.ChannelBaseURLs[channelModel.Type]
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+	if err := canceller.CancelTask(ctx, baseURL, channelModel.Key, task.GetUpstreamTaskID(), channelModel.GetSetting().Proxy); err != nil {
+		if errors.Is(err, channel.ErrTaskCancellationUnsupported) {
+			return service.TaskErrorWrapperLocal(err, "task_cancellation_unsupported", http.StatusNotImplemented)
+		}
+		if errors.Is(err, channel.ErrTaskNotCancellable) {
+			return service.TaskErrorWrapperLocal(err, "task_not_cancellable", http.StatusConflict)
+		}
+		return service.TaskErrorWrapper(err, "task_cancellation_failed", http.StatusBadGateway)
+	}
+
+	previous := task.Status
+	task.Status = model.TaskStatusCancelled
+	task.Progress = taskcommon.ProgressComplete
+	task.FinishTime = time.Now().Unix()
+	won, err := task.UpdateWithStatus(previous)
+	if err != nil {
+		return service.TaskErrorWrapper(err, "update_task_failed", http.StatusInternalServerError)
+	}
+	if !won {
+		return service.TaskErrorWrapperLocal(channel.ErrTaskNotCancellable, "task_not_cancellable", http.StatusConflict)
+	}
+	service.RefundTaskQuota(c.Request.Context(), task, "task cancelled")
+	c.JSON(http.StatusOK, task.ToOpenAIVideo())
+	return nil
+}
 
 type TaskSubmitResult struct {
 	UpstreamTaskID string
@@ -540,6 +603,8 @@ func mapTaskStatusToSimple(status model.TaskStatus) string {
 		return "succeeded"
 	case model.TaskStatusFailure:
 		return "failed"
+	case model.TaskStatusCancelled:
+		return "cancelled"
 	case model.TaskStatusQueued, model.TaskStatusSubmitted:
 		return "queued"
 	default:

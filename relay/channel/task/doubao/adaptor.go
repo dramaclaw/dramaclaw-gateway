@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -277,21 +278,38 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 		Content: []ContentItem{},
 	}
 
-	// Add images if present
-	if req.HasImage() {
-		for _, imgURL := range req.Images {
-			r.Content = append(r.Content, ContentItem{
-				Type: "image_url",
-				ImageURL: &MediaURL{
-					URL: imgURL,
-				},
-			})
-		}
-	}
-
 	metadata := req.Metadata
 	if err := taskcommon.UnmarshalMetadata(metadata, &r); err != nil {
 		return nil, errors.Wrap(err, "unmarshal metadata failed")
+	}
+	dcMetadata := relaycommon.DCMediaMetadata{}
+	if err := req.UnmarshalMetadata(&dcMetadata); err != nil {
+		return nil, errors.Wrap(err, "unmarshal DC media metadata failed")
+	}
+	appendImage := func(rawURL, role string) {
+		if rawURL = strings.TrimSpace(rawURL); rawURL != "" {
+			r.Content = append(r.Content, ContentItem{Type: "image_url", ImageURL: &MediaURL{URL: rawURL}, Role: role})
+		}
+	}
+	appendImage(req.Image, "first_frame")
+	appendImage(dcMetadata.LastFrameImage, "last_frame")
+	for _, rawURL := range dcMetadata.ReferenceImages {
+		appendImage(rawURL, "reference_image")
+	}
+	for _, rawURL := range dcMetadata.ReferenceVideos {
+		if rawURL = strings.TrimSpace(rawURL); rawURL != "" {
+			r.Content = append(r.Content, ContentItem{Type: "video_url", VideoURL: &MediaURL{URL: rawURL}, Role: "reference_video"})
+		}
+	}
+	for _, rawURL := range dcMetadata.ReferenceAudios {
+		if rawURL = strings.TrimSpace(rawURL); rawURL != "" {
+			r.Content = append(r.Content, ContentItem{Type: "audio_url", AudioURL: &MediaURL{URL: rawURL}, Role: "reference_audio"})
+		}
+	}
+	if req.Image == "" && len(dcMetadata.ReferenceImages) == 0 && len(dcMetadata.ReferenceVideos) == 0 && len(dcMetadata.ReferenceAudios) == 0 {
+		for _, rawURL := range req.Images {
+			appendImage(rawURL, "first_frame")
+		}
 	}
 
 	if sec, _ := strconv.Atoi(req.Seconds); sec > 0 {

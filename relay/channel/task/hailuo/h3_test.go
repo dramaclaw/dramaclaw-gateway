@@ -74,18 +74,62 @@ func TestH3VideoRequestSingleReferenceImagePreservesReferenceRole(t *testing.T) 
 	assert.Equal(t, "adaptive", body.Ratio)
 }
 
-func TestH3VideoRequestRejectsUnsupportedStageTwoShape(t *testing.T) {
+func TestH3VideoRequestPreservesFirstLastFrameRoles(t *testing.T) {
 	req := relaycommon.TaskSubmitReq{
-		Prompt: "Use both references",
+		Prompt: "Transition",
+		Image:  "first.png",
+		Metadata: map[string]any{
+			"last_frame_image": "last.png",
+			"ratio":            "4:3",
+		},
+	}
+
+	body, err := h3VideoRequestFromTask(req)
+
+	require.NoError(t, err)
+	require.Len(t, body.Content, 3)
+	assert.Equal(t, "first_frame", body.Content[1].Role)
+	assert.Equal(t, "last_frame", body.Content[2].Role)
+	assert.Equal(t, "adaptive", body.Ratio)
+}
+
+func TestH3VideoRequestPreservesReferenceMediaRoles(t *testing.T) {
+	req := relaycommon.TaskSubmitReq{
+		Prompt: "Use all references",
 		Metadata: map[string]any{
 			"reference_images": []string{"one.png", "two.png"},
+			"reference_videos": []string{"one.mp4"},
+			"reference_audios": []string{"one.mp3"},
+			"ratio":            "auto",
+		},
+	}
+
+	body, err := h3VideoRequestFromTask(req)
+
+	require.NoError(t, err)
+	require.Len(t, body.Content, 5)
+	assert.Equal(t, "reference_image", body.Content[1].Role)
+	assert.Equal(t, "reference_image", body.Content[2].Role)
+	assert.Equal(t, "reference_video", body.Content[3].Role)
+	assert.Equal(t, "reference_audio", body.Content[4].Role)
+	assert.Equal(t, "adaptive", body.Ratio)
+}
+
+func TestH3VideoRequestRejectsUnsupportedVideoEdit(t *testing.T) {
+	req := relaycommon.TaskSubmitReq{
+		Prompt:       "Edit",
+		DurationAuto: true,
+		DurationSet:  true,
+		Metadata: map[string]any{
+			"reference_videos": []string{"one.mp4"},
+			"ratio":            "auto",
 		},
 	}
 
 	_, err := h3VideoRequestFromTask(req)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "image_reference")
+	assert.Contains(t, err.Error(), "does not support video editing")
 }
 
 func TestH3AdaptorBuildsV2URL(t *testing.T) {

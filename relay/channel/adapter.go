@@ -1,6 +1,8 @@
 package channel
 
 import (
+	"context"
+	"errors"
 	"io"
 	"net/http"
 
@@ -11,6 +13,11 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 
 	"github.com/gin-gonic/gin"
+)
+
+var (
+	ErrTaskCancellationUnsupported = errors.New("task cancellation is not supported by the upstream")
+	ErrTaskNotCancellable          = errors.New("task is no longer cancellable")
 )
 
 type Adaptor interface {
@@ -81,4 +88,10 @@ type TaskAdaptor interface {
 
 type OpenAIVideoConverter interface {
 	ConvertToOpenAIVideo(originTask *model.Task) ([]byte, error)
+}
+
+// TaskCanceller is optional. Adaptors must only return nil after the upstream
+// confirms that the specific task was cancelled.
+type TaskCanceller interface {
+	CancelTask(ctx context.Context, baseURL, key, upstreamTaskID, proxy string) error
 }

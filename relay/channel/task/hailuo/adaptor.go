@@ -38,7 +38,31 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 }
 
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *taskdto.TaskError) {
-	return relaycommon.ValidateBasicTaskRequest(c, info, constant.TaskActionGenerate)
+	if taskErr := relaycommon.ValidateBasicTaskRequest(c, info, constant.TaskActionGenerate); taskErr != nil {
+		return taskErr
+	}
+	if !isH3Model(info.UpstreamModelName) {
+		return nil
+	}
+	req, err := relaycommon.GetTaskRequest(c)
+	if err != nil {
+		return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+	}
+	shape, err := relaycommon.ValidateDCMediaTaskRequest(&req)
+	if err != nil {
+		return service.TaskErrorWrapperLocal(err, relaycommon.DCMediaValidationErrorCode(err), http.StatusBadRequest)
+	}
+	if shape == relaycommon.DCMediaVideoEdit {
+		return service.TaskErrorWrapperLocal(
+			fmt.Errorf("MiniMax-H3 generation API does not support video editing"),
+			"unsupported_media_combination",
+			http.StatusBadRequest,
+		)
+	}
+	if _, err := h3VideoRequestFromTask(req); err != nil {
+		return service.TaskErrorWrapperLocal(err, "invalid_media_request", http.StatusBadRequest)
+	}
+	return nil
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {

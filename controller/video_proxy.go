@@ -67,6 +67,7 @@ func VideoProxy(c *gin.Context) {
 	}
 
 	var videoURL string
+	trustedChannelURL := false
 	proxy := channel.GetSetting().Proxy
 	client := service.GetSSRFProtectedHTTPClient()
 	if proxy != "" {
@@ -114,6 +115,23 @@ func VideoProxy(c *gin.Context) {
 	case constant.ChannelTypeOpenAI, constant.ChannelTypeSora:
 		videoURL = fmt.Sprintf("%s/v1/videos/%s/content", baseURL, task.GetUpstreamTaskID())
 		req.Header.Set("Authorization", "Bearer "+channel.Key)
+	case constant.ChannelTypeComfyUI:
+		videoURL = task.GetResultURL()
+		if !sameURLOrigin(videoURL, baseURL) {
+			logger.LogError(c.Request.Context(), fmt.Sprintf("ComfyUI result URL origin does not match channel base URL for task %s", taskID))
+			videoProxyError(c, http.StatusForbidden, "server_error", "ComfyUI result URL is not trusted")
+			return
+		}
+		trustedChannelURL = true
+		client, err = service.GetHttpClientWithProxy(proxy)
+		if err != nil {
+			videoProxyError(c, http.StatusInternalServerError, "server_error", "Failed to create proxy client")
+			return
+		}
+		if strings.TrimSpace(channel.Key) != "" {
+			req.Header.Set("Authorization", "Bearer "+channel.Key)
+			req.Header.Set("X-API-Key", channel.Key)
+		}
 	default:
 		// Video URL is stored in PrivateData.ResultURL (fallback to FailReason for old data)
 		videoURL = task.GetResultURL()
@@ -135,7 +153,9 @@ func VideoProxy(c *gin.Context) {
 	}
 
 	var validateErr error
-	if proxy == "" {
+	if trustedChannelURL {
+		validateErr = nil
+	} else if proxy == "" {
 		validateErr = service.ValidateSSRFProtectedFetchURL(videoURL)
 	} else {
 		fetchSetting := system_setting.GetFetchSetting()
@@ -180,6 +200,15 @@ func VideoProxy(c *gin.Context) {
 	if _, err = io.Copy(c.Writer, resp.Body); err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Failed to stream video content: %s", err.Error()))
 	}
+}
+
+func sameURLOrigin(rawURL, baseURL string) bool {
+	result, resultErr := url.Parse(strings.TrimSpace(rawURL))
+	base, baseErr := url.Parse(strings.TrimSpace(baseURL))
+	if resultErr != nil || baseErr != nil || !result.IsAbs() || !base.IsAbs() {
+		return false
+	}
+	return strings.EqualFold(result.Scheme, base.Scheme) && strings.EqualFold(result.Host, base.Host)
 }
 
 func writeVideoDataURL(c *gin.Context, dataURL string) error {

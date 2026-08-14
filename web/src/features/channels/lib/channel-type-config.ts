@@ -164,6 +164,18 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       models: 'Models',
     },
   },
+  61: {
+    id: 61,
+    name: CHANNEL_TYPES[61],
+    icon: 'openai',
+    defaultBaseUrl: 'http://127.0.0.1:8188',
+    hints: {
+      baseUrl: 'ComfyUI server endpoint',
+      key: 'Optional bearer token or API key',
+      models: 'Model names bound in ComfyUI workflow routes',
+      other: 'Configure exported API Format workflows in channel settings',
+    },
+  },
 }
 
 /**

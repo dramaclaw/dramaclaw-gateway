@@ -42,6 +42,8 @@ type h3ContentItem struct {
 	Type     string       `json:"type"`
 	Text     string       `json:"text,omitempty"`
 	ImageURL *h3URLObject `json:"image_url,omitempty"`
+	VideoURL *h3URLObject `json:"video_url,omitempty"`
+	AudioURL *h3URLObject `json:"audio_url,omitempty"`
 	Role     string       `json:"role,omitempty"`
 }
 
@@ -51,6 +53,9 @@ type h3URLObject struct {
 
 type h3VideoMetadata struct {
 	ReferenceImages []string `json:"reference_images,omitempty"`
+	ReferenceVideos []string `json:"reference_videos,omitempty"`
+	ReferenceAudios []string `json:"reference_audios,omitempty"`
+	LastFrameImage  string   `json:"last_frame_image,omitempty"`
 	Resolution      string   `json:"resolution,omitempty"`
 	Ratio           string   `json:"ratio,omitempty"`
 	CallbackURL     string   `json:"callback_url,omitempty"`
@@ -102,10 +107,10 @@ func h3VideoRequestFromTask(req relaycommon.TaskSubmitReq) (*h3VideoRequest, err
 	if err != nil {
 		return nil, err
 	}
-	if shape != relaycommon.DCMediaTextToVideo && shape != relaycommon.DCMediaFirstFrame && shape != relaycommon.DCMediaImageToVideo {
+	if shape == relaycommon.DCMediaVideoEdit {
 		return nil, &requestParameterError{
-			field:   "metadata",
-			message: fmt.Sprintf("MiniMax-H3 request shape %q is not supported by this adapter stage", shape),
+			field:   "duration",
+			message: "MiniMax-H3 generation API does not support video editing with duration=auto",
 		}
 	}
 	if req.Prompt == "" {
@@ -116,19 +121,42 @@ func h3VideoRequestFromTask(req relaycommon.TaskSubmitReq) (*h3VideoRequest, err
 	if err := req.UnmarshalMetadata(&metadata); err != nil {
 		return nil, err
 	}
-	content := []h3ContentItem{{Type: "text", Text: req.Prompt}}
-	image := strings.TrimSpace(req.Image)
-	imageRole := "first_frame"
-	if shape == relaycommon.DCMediaImageToVideo {
-		image = strings.TrimSpace(metadata.ReferenceImages[0])
-		imageRole = "reference_image"
+	if len(metadata.ReferenceImages) > 9 {
+		return nil, h3MediaLimitError("metadata.reference_images", 9)
 	}
-	if image != "" {
-		content = append(content, h3ContentItem{
-			Type:     "image_url",
-			ImageURL: &h3URLObject{URL: image},
-			Role:     imageRole,
-		})
+	if len(metadata.ReferenceVideos) > 3 {
+		return nil, h3MediaLimitError("metadata.reference_videos", 3)
+	}
+	if len(metadata.ReferenceAudios) > 3 {
+		return nil, h3MediaLimitError("metadata.reference_audios", 3)
+	}
+	if len(metadata.ReferenceAudios) > 0 && len(metadata.ReferenceImages) == 0 && len(metadata.ReferenceVideos) == 0 {
+		return nil, &requestParameterError{
+			field:   "metadata.reference_audios",
+			message: "MiniMax-H3 reference audio requires at least one reference image or video",
+		}
+	}
+
+	content := []h3ContentItem{{Type: "text", Text: req.Prompt}}
+	appendH3ImageContent := func(rawURL, role string) {
+		if rawURL = strings.TrimSpace(rawURL); rawURL != "" {
+			content = append(content, h3ContentItem{Type: "image_url", ImageURL: &h3URLObject{URL: rawURL}, Role: role})
+		}
+	}
+	appendH3ImageContent(req.Image, "first_frame")
+	appendH3ImageContent(metadata.LastFrameImage, "last_frame")
+	for _, image := range metadata.ReferenceImages {
+		appendH3ImageContent(image, "reference_image")
+	}
+	for _, video := range metadata.ReferenceVideos {
+		if video = strings.TrimSpace(video); video != "" {
+			content = append(content, h3ContentItem{Type: "video_url", VideoURL: &h3URLObject{URL: video}, Role: "reference_video"})
+		}
+	}
+	for _, audio := range metadata.ReferenceAudios {
+		if audio = strings.TrimSpace(audio); audio != "" {
+			content = append(content, h3ContentItem{Type: "audio_url", AudioURL: &h3URLObject{URL: audio}, Role: "reference_audio"})
+		}
 	}
 
 	duration, err := normalizeH3Duration(req.Duration, req.DurationAuto)
@@ -181,11 +209,11 @@ func normalizeH3Duration(value int, automatic bool) (int, error) {
 }
 
 func normalizeH3Ratio(value string, shape relaycommon.DCMediaCallShape) (string, error) {
-	if shape == relaycommon.DCMediaFirstFrame {
+	if shape == relaycommon.DCMediaFirstFrame || shape == relaycommon.DCMediaFirstLastFrame {
 		return "adaptive", nil
 	}
 	ratio := strings.ToLower(strings.TrimSpace(value))
-	if shape == relaycommon.DCMediaImageToVideo {
+	if shape == relaycommon.DCMediaImageToVideo || shape == relaycommon.DCMediaImageReference || shape == relaycommon.DCMediaAllReference {
 		if ratio == "" || ratio == "auto" || ratio == "adaptive" {
 			return "adaptive", nil
 		}
@@ -201,6 +229,10 @@ func normalizeH3Ratio(value string, shape relaycommon.DCMediaCallShape) (string,
 		return "", &requestParameterError{field: "metadata.ratio", message: fmt.Sprintf("MiniMax-H3 does not support ratio %q", value)}
 	}
 	return ratio, nil
+}
+
+func h3MediaLimitError(field string, maximum int) error {
+	return &requestParameterError{field: field, message: fmt.Sprintf("MiniMax-H3 %s supports at most %d items", field, maximum)}
 }
 
 func normalizeH3Resolution(value string) (string, error) {
