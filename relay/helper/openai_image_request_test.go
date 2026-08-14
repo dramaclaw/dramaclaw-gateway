@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -157,4 +159,46 @@ func TestGetAndValidOpenAIImageRequestNBounds(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), boundErr)
 	})
+}
+
+func TestGetAndValidOpenAIImageRequestNormalizesDCMediaGeometry(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	request := httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{
+		"model":"example-image",
+		"prompt":"draw",
+		"width":854,
+		"height":480,
+		"metadata":{"ratio":"16:9","resolution":"2k"}
+	}`))
+	request.Header.Set("Content-Type", "application/json")
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	context.Request = request
+
+	imageRequest, err := GetAndValidOpenAIImageRequest(context, relayconstant.RelayModeImagesGenerations)
+
+	require.NoError(t, err)
+	assert.Equal(t, "854x480", imageRequest.Size)
+	encoded, err := common.Marshal(imageRequest)
+	require.NoError(t, err)
+	assert.NotContains(t, string(encoded), `"metadata"`)
+	assert.NotContains(t, string(encoded), `"width"`)
+}
+
+func TestGetAndValidOpenAIImageRequestRejectsConflictingAutoRatio(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	request := httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{
+		"model":"example-image",
+		"prompt":"draw",
+		"width":1024,
+		"height":1024,
+		"metadata":{"ratio":"auto"}
+	}`))
+	request.Header.Set("Content-Type", "application/json")
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	context.Request = request
+
+	_, err := GetAndValidOpenAIImageRequest(context, relayconstant.RelayModeImagesGenerations)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "metadata.ratio=auto")
 }

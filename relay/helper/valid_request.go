@@ -241,6 +241,9 @@ func GetAndValidOpenAIImageRequest(c *gin.Context, relayMode int) (*dto.ImageReq
 			//imageRequest.Model = "dall-e-3"
 			return nil, errors.New("model is required")
 		}
+		if err := normalizeDCMediaImageRequest(imageRequest); err != nil {
+			return nil, err
+		}
 
 		if strings.Contains(imageRequest.Size, "×") {
 			return nil, errors.New("size an unexpected error occurred in the parameter, please use 'x' instead of the multiplication sign '×'")
