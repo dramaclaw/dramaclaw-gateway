@@ -116,7 +116,10 @@ func VideoProxy(c *gin.Context) {
 		videoURL = fmt.Sprintf("%s/v1/videos/%s/content", baseURL, task.GetUpstreamTaskID())
 		req.Header.Set("Authorization", "Bearer "+channel.Key)
 	case constant.ChannelTypeComfyUI:
-		videoURL = task.GetResultURL()
+		videoURL = strings.TrimSpace(task.PrivateData.UpstreamResultURL)
+		if videoURL == "" {
+			videoURL = task.GetResultURL()
+		}
 		if !sameURLOrigin(videoURL, baseURL) {
 			logger.LogError(c.Request.Context(), fmt.Sprintf("ComfyUI result URL origin does not match channel base URL for task %s", taskID))
 			videoProxyError(c, http.StatusForbidden, "server_error", "ComfyUI result URL is not trusted")

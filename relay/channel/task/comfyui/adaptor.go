@@ -439,7 +439,7 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	case "succeeded":
 		taskResult.Status = model.TaskStatusSuccess
 		taskResult.Progress = "100%"
-		taskResult.Url = wrapped.URL
+		taskResult.RemoteUrl = wrapped.URL
 	case "failed":
 		taskResult.Status = model.TaskStatusFailure
 		taskResult.Progress = "100%"

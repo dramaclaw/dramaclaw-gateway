@@ -476,11 +476,8 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 		return
 	}
 
-	// 通用 TaskDto 格式
-	respBody, err = common.Marshal(dto.TaskResponse[any]{
-		Code: "success",
-		Data: TaskModel2Dto(originTask),
-	})
+	// DC-Media-Protocol 顶层字段，同时保留旧 code/data 供现有客户端兼容。
+	respBody, err = common.Marshal(buildDCMediaTaskResponse(originTask, TaskModel2Dto(originTask)))
 	if err != nil {
 		taskResp = service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
 	}
@@ -564,11 +561,66 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		"task_id":  task.TaskID,
 		"url":      task.GetResultURL(),
 	}
-	respBody, _ := common.Marshal(dto.TaskResponse[any]{
-		Code: "success",
-		Data: out,
-	})
+	respBody, _ := common.Marshal(buildDCMediaTaskResponse(task, out))
 	return respBody
+}
+
+func buildDCMediaTaskResponse(task *model.Task, legacyData any) map[string]any {
+	results := make([]map[string]any, 0, 1)
+	if resultURL := strings.TrimSpace(task.GetResultURL()); resultURL != "" && task.Status == model.TaskStatusSuccess {
+		results = append(results, map[string]any{
+			"type":   "video",
+			"url":    resultURL,
+			"format": "mp4",
+		})
+	}
+	response := map[string]any{
+		"id":       task.TaskID,
+		"task_id":  task.TaskID,
+		"status":   mapTaskStatusToDCMedia(task.Status),
+		"progress": taskProgressPercent(task.Progress),
+		"model":    task.Properties.OriginModelName,
+		"results":  results,
+		"code":     "success",
+		"data":     legacyData,
+	}
+	if task.Status == model.TaskStatusFailure && strings.TrimSpace(task.FailReason) != "" {
+		response["error"] = map[string]any{
+			"code":      "upstream_task_failed",
+			"message":   task.FailReason,
+			"retryable": false,
+		}
+	}
+	return response
+}
+
+func mapTaskStatusToDCMedia(status model.TaskStatus) string {
+	switch status {
+	case model.TaskStatusQueued, model.TaskStatusSubmitted, model.TaskStatusNotStart:
+		return "queued"
+	case model.TaskStatusInProgress:
+		return "running"
+	case model.TaskStatusSuccess:
+		return "succeeded"
+	case model.TaskStatusFailure:
+		return "failed"
+	case model.TaskStatusCancelled:
+		return "cancelled"
+	default:
+		return "running"
+	}
+}
+
+func taskProgressPercent(progress string) int {
+	value := strings.TrimSuffix(strings.TrimSpace(progress), "%")
+	percent, err := strconv.Atoi(value)
+	if err != nil || percent < 0 {
+		return 0
+	}
+	if percent > 100 {
+		return 100
+	}
+	return percent
 }
 
 // detectVideoFormat 从 Gemini/Vertex 原始响应中探测视频格式

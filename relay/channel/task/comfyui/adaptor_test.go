@@ -1009,8 +1009,8 @@ func TestParseComfyUIHistoryVideoOutput(t *testing.T) {
 	info, err := (&TaskAdaptor{}).ParseTaskResult(data)
 	require.NoError(t, err)
 	assert.Equal(t, "SUCCESS", info.Status)
-	assert.Equal(t, wrapped.URL, info.Url)
-	assert.Empty(t, info.RemoteUrl)
+	assert.Empty(t, info.Url)
+	assert.Equal(t, wrapped.URL, info.RemoteUrl)
 }
 
 func TestFetchTaskUsesChannelBaseURLForInternalResultURL(t *testing.T) {
