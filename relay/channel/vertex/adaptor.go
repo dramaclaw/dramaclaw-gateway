@@ -55,6 +55,8 @@ type Adaptor struct {
 	AccountCredentials Credentials
 }
 
+func (a *Adaptor) GetBaseURLPolicy() (bool, bool) { return false, true }
+
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
 	// Vertex AI does not support functionResponse.id; keep it stripped here for consistency.
 	if model_setting.GetGeminiSettings().RemoveFunctionResponseIdEnabled {

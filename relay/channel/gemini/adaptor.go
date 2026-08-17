@@ -23,6 +23,10 @@ import (
 type Adaptor struct {
 }
 
+func (a *Adaptor) GetCapabilities() []string {
+	return []string{"text", "vision", "embedding", "image", "video", "audio"}
+}
+
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
 	if len(request.Contents) > 0 {
 		for i, content := range request.Contents {

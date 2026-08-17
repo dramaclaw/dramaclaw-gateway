@@ -28,6 +28,8 @@ import (
 type Adaptor struct {
 }
 
+func (a *Adaptor) GetCapabilities() []string { return []string{"image"} }
+
 func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 }
 

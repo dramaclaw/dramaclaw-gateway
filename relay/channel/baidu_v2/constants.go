@@ -26,4 +26,4 @@ var ModelList = []string{
 	"deepseek-r1-distill-qwen-14b",
 }
 
-var ChannelName = "volcengine"
+var ChannelName = "baidu_v2"

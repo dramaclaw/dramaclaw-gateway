@@ -39,6 +39,17 @@ type Adaptor interface {
 	ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error)
 }
 
+// CapabilityMetadataProvider lets an adaptor declare capabilities that cannot
+// be inferred reliably from model names.
+type CapabilityMetadataProvider interface {
+	GetCapabilities() []string
+}
+
+// BaseURLMetadataProvider lets an adaptor declare its Base URL policy.
+type BaseURLMetadataProvider interface {
+	GetBaseURLPolicy() (requiresBaseURL, supportsBaseURLOverride bool)
+}
+
 type TaskAdaptor interface {
 	Init(info *relaycommon.RelayInfo)
 
