@@ -164,9 +164,9 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       models: 'Models',
     },
   },
-  61: {
-    id: 61,
-    name: CHANNEL_TYPES[61],
+  63: {
+    id: 63,
+    name: CHANNEL_TYPES[63],
     icon: 'openai',
     defaultBaseUrl: 'http://127.0.0.1:8188',
     hints: {

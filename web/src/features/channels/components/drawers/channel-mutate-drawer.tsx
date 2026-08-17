@@ -2793,7 +2793,7 @@ export function ChannelMutateDrawer({
                               />
                             )}
 
-                            {currentType === 61 && (
+                            {currentType === 63 && (
                               <FormField
                                 control={form.control}
                                 name='settings'
