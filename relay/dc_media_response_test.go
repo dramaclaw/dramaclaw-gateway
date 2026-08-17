@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBuildDCMediaTaskResponseIncludesCanonicalAndLegacyFields(t *testing.T) {
+func TestBuildDCMediaTaskResponseIncludesCanonicalFields(t *testing.T) {
 	task := &model.Task{
 		TaskID:   "task_public",
 		Status:   model.TaskStatusSuccess,
@@ -18,16 +18,15 @@ func TestBuildDCMediaTaskResponseIncludesCanonicalAndLegacyFields(t *testing.T) 
 		},
 		PrivateData: model.TaskPrivateData{ResultURL: "https://example.com/result.mp4"},
 	}
-	legacy := map[string]any{"status": "succeeded", "task_id": task.TaskID}
-
-	response := buildDCMediaTaskResponse(task, legacy)
+	response := buildDCMediaTaskResponse(task)
 	assert.Equal(t, task.TaskID, response["id"])
 	assert.Equal(t, task.TaskID, response["task_id"])
 	assert.Equal(t, "succeeded", response["status"])
 	assert.Equal(t, 100, response["progress"])
-	assert.Equal(t, "success", response["code"])
 	require.Len(t, response["results"], 1)
-	assert.Equal(t, legacy, response["data"])
+	assert.Equal(t, "https://example.com/result.mp4", response["result_url"])
+	assert.NotContains(t, response, "code")
+	assert.NotContains(t, response, "data")
 }
 
 func TestBuildDCMediaTaskResponseUsesStableTerminalStates(t *testing.T) {

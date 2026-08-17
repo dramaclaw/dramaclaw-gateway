@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
@@ -31,14 +33,34 @@ func videoProxyError(c *gin.Context, status int, errType, message string) {
 }
 
 func VideoProxy(c *gin.Context) {
+	videoProxy(c, false)
+}
+
+func PublicVideoProxy(c *gin.Context) {
+	videoProxy(c, true)
+}
+
+func videoProxy(c *gin.Context, public bool) {
 	taskID := c.Param("task_id")
 	if taskID == "" {
 		videoProxyError(c, http.StatusBadRequest, "invalid_request_error", "task_id is required")
 		return
 	}
 
-	userID := c.GetInt("id")
-	task, exists, err := model.GetByTaskId(userID, taskID)
+	var task *model.Task
+	var exists bool
+	var err error
+	if public {
+		expires, parseErr := strconv.ParseInt(c.Query("expires"), 10, 64)
+		if parseErr != nil || !taskcommon.ValidatePublicProxySignature(taskID, expires, c.Query("signature")) {
+			videoProxyError(c, http.StatusUnauthorized, "invalid_request_error", "invalid or expired signature")
+			return
+		}
+		task, exists, err = model.GetByOnlyTaskId(taskID)
+	} else {
+		userID := c.GetInt("id")
+		task, exists, err = model.GetByTaskId(userID, taskID)
+	}
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Failed to query task %s: %s", taskID, err.Error()))
 		videoProxyError(c, http.StatusInternalServerError, "server_error", "Failed to query task")

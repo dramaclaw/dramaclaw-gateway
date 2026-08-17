@@ -463,6 +463,9 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, erro
 	openAIVideo.CompletedAt = originTask.UpdatedAt
 	openAIVideo.Model = originTask.Properties.OriginModelName
 	resultURL := firstNonEmpty(originTask.GetResultURL(), wrapped.URL)
+	if originTask.PrivateData.UpstreamResultURL != "" {
+		resultURL = taskcommon.BuildPublicProxyURL(originTask.TaskID)
+	}
 	if resultURL != "" {
 		openAIVideo.SetMetadata("url", resultURL)
 		openAIVideo.SetMetadata("video_url", resultURL)

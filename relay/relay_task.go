@@ -476,8 +476,8 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 		return
 	}
 
-	// DC-Media-Protocol 顶层字段，同时保留旧 code/data 供现有客户端兼容。
-	respBody, err = common.Marshal(buildDCMediaTaskResponse(originTask, TaskModel2Dto(originTask)))
+	// 返回扁平的 DC-Media-Protocol 任务响应。
+	respBody, err = common.Marshal(buildDCMediaTaskResponse(originTask))
 	if err != nil {
 		taskResp = service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
 	}
@@ -551,23 +551,15 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		return nil
 	}
 
-	// 非 OpenAI Video API: 构建自定义格式响应
-	format := detectVideoFormat(body)
-	out := map[string]any{
-		"error":    nil,
-		"format":   format,
-		"metadata": nil,
-		"status":   mapTaskStatusToSimple(task.Status),
-		"task_id":  task.TaskID,
-		"url":      task.GetResultURL(),
-	}
-	respBody, _ := common.Marshal(buildDCMediaTaskResponse(task, out))
+	// 非 OpenAI Video API: 构建 DC-Media 响应。
+	respBody, _ := common.Marshal(buildDCMediaTaskResponse(task))
 	return respBody
 }
 
-func buildDCMediaTaskResponse(task *model.Task, legacyData any) map[string]any {
+func buildDCMediaTaskResponse(task *model.Task) map[string]any {
 	results := make([]map[string]any, 0, 1)
-	if resultURL := strings.TrimSpace(task.GetResultURL()); resultURL != "" && task.Status == model.TaskStatusSuccess {
+	resultURL := taskResponseResultURL(task)
+	if resultURL != "" && task.Status == model.TaskStatusSuccess {
 		results = append(results, map[string]any{
 			"type":   "video",
 			"url":    resultURL,
@@ -581,8 +573,11 @@ func buildDCMediaTaskResponse(task *model.Task, legacyData any) map[string]any {
 		"progress": taskProgressPercent(task.Progress),
 		"model":    task.Properties.OriginModelName,
 		"results":  results,
-		"code":     "success",
-		"data":     legacyData,
+	}
+	// DramaClaw currently consumes a flat result_url while results remains the
+	// canonical DC-Media result collection.
+	if resultURL != "" && task.Status == model.TaskStatusSuccess {
+		response["result_url"] = resultURL
 	}
 	if task.Status == model.TaskStatusFailure && strings.TrimSpace(task.FailReason) != "" {
 		response["error"] = map[string]any{
@@ -592,6 +587,17 @@ func buildDCMediaTaskResponse(task *model.Task, legacyData any) map[string]any {
 		}
 	}
 	return response
+}
+
+func taskResponseResultURL(task *model.Task) string {
+	if task == nil {
+		return ""
+	}
+	if task.Platform == constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeComfyUI)) &&
+		strings.TrimSpace(task.PrivateData.UpstreamResultURL) != "" {
+		return taskcommon.BuildPublicProxyURL(task.TaskID)
+	}
+	return strings.TrimSpace(task.GetResultURL())
 }
 
 func mapTaskStatusToDCMedia(status model.TaskStatus) string {
@@ -678,7 +684,7 @@ func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 		Action:     task.Action,
 		Status:     string(task.Status),
 		FailReason: task.FailReason,
-		ResultURL:  task.GetResultURL(),
+		ResultURL:  taskResponseResultURL(task),
 		SubmitTime: task.SubmitTime,
 		StartTime:  task.StartTime,
 		FinishTime: task.FinishTime,
