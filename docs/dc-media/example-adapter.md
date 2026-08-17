@@ -107,4 +107,3 @@ func (a *TaskAdaptor) CancelTask(
 ```
 
 供应商只有“中断当前所有任务”一类全局接口时，不得实现该接口。
-

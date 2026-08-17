@@ -47,4 +47,3 @@ cd ../web && bun install --frozen-lockfile && bun run typecheck && bun run build
 
 协议发生不兼容变化时必须升级协议版本。供应商内部字段变化但公共请求和响应不变时，
 只发布 RelayClaw CE，不要求同步发布 DramaClaw。
-
