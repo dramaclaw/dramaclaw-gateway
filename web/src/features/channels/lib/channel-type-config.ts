@@ -164,6 +164,17 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       models: 'Models',
     },
   },
+  61: {
+    id: 61,
+    name: CHANNEL_TYPES[61],
+    icon: 'openai',
+    defaultBaseUrl: 'https://fal.run',
+    hints: {
+      baseUrl: 'fal.ai API endpoint',
+      key: 'fal.ai API key',
+      models: 'fal.ai model IDs',
+    },
+  },
   63: {
     id: 63,
     name: CHANNEL_TYPES[63],
