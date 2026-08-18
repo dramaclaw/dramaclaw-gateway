@@ -288,10 +288,11 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 	seenImages := map[string]bool{}
 	appendImage := func(rawURL, role string) {
 		if rawURL = strings.TrimSpace(rawURL); rawURL != "" {
-			if seenImages[rawURL] {
+			identity := role + "\x00" + rawURL
+			if seenImages[identity] {
 				return
 			}
-			seenImages[rawURL] = true
+			seenImages[identity] = true
 			r.Content = append(r.Content, ContentItem{Type: "image_url", ImageURL: &MediaURL{URL: rawURL}, Role: role})
 		}
 	}

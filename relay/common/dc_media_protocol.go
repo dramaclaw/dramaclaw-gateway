@@ -261,8 +261,8 @@ func parseDCMediaDimensions(value string) (int, int, bool) {
 }
 
 func fixedDCMediaSize(value string) bool {
-	value = strings.ToLower(strings.TrimSpace(value))
-	return value != "" && value != "auto"
+	_, _, ok := parseDCMediaDimensions(value)
+	return ok
 }
 
 func dcMediaDimensionsMatchRatio(width, height int, ratio string) bool {

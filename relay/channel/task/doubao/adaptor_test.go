@@ -59,6 +59,27 @@ func TestConvertToRequestPayloadTranslatesCanonicalDurationAndRatio(t *testing.T
 	assert.Equal(t, "adaptive", payload.Ratio)
 }
 
+func TestConvertToRequestPayloadPreservesSameURLAcrossFrameRoles(t *testing.T) {
+	const frameURL = "https://example.com/loop.png"
+	req := relaycommon.TaskSubmitReq{
+		Model:  "seedance-test",
+		Prompt: "seamless loop",
+		Image:  frameURL,
+		Metadata: map[string]any{
+			"last_frame_image": frameURL,
+		},
+	}
+
+	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req)
+	require.NoError(t, err)
+	require.Len(t, payload.Content, 3)
+	assert.Equal(t, "first_frame", payload.Content[0].Role)
+	assert.Equal(t, frameURL, payload.Content[0].ImageURL.URL)
+	assert.Equal(t, "last_frame", payload.Content[1].Role)
+	assert.Equal(t, frameURL, payload.Content[1].ImageURL.URL)
+	assert.Equal(t, "text", payload.Content[2].Type)
+}
+
 func TestConvertToRequestPayloadPreservesCompatibilityImages(t *testing.T) {
 	req := relaycommon.TaskSubmitReq{
 		Model:  "seedance-test",

@@ -82,6 +82,13 @@ func TestValidateDCMediaTaskRequestAllowsRoundedDimensions(t *testing.T) {
 	assert.Equal(t, DCMediaTextToVideo, shape)
 }
 
+func TestValidateDCMediaTaskRequestAllowsResolutionTierWithAutoRatio(t *testing.T) {
+	req := TaskSubmitReq{Size: "720p", Metadata: map[string]interface{}{"ratio": "auto"}}
+	shape, err := ValidateDCMediaTaskRequest(&req)
+	require.NoError(t, err)
+	assert.Equal(t, DCMediaTextToVideo, shape)
+}
+
 func TestValidateDCMediaTaskRequestReturnsStableErrorCode(t *testing.T) {
 	req := TaskSubmitReq{Image: "first.png", Metadata: map[string]interface{}{"reference_images": []string{"ref.png"}}}
 	_, err := ValidateDCMediaTaskRequest(&req)
