@@ -2793,6 +2793,57 @@ export function ChannelMutateDrawer({
                               />
                             )}
 
+                            {currentType === 63 && (
+                              <FormField
+                                control={form.control}
+                                name='settings'
+                                render={({ field }) => (
+                                  <FormItem className='space-y-3 border-y py-4'>
+                                    <FormLabel>
+                                      {t('ComfyUI Workflow Settings')}
+                                    </FormLabel>
+                                    <FormDescription>
+                                      {t(
+                                        'Configure exported API Format workflows under the comfyui key. Request metadata cannot replace configured workflows.'
+                                      )}
+                                    </FormDescription>
+                                    <FormControl>
+                                      <JsonCodeEditor
+                                        value={field.value || '{}'}
+                                        onChange={field.onChange}
+                                        name={field.name}
+                                        onBlur={field.onBlur}
+                                        textareaRef={field.ref}
+                                        disabled={
+                                          sensitiveLocked || isSubmitting
+                                        }
+                                        placeholder={JSON.stringify(
+                                          {
+                                            comfyui: {
+                                              workflow_routes: [
+                                                {
+                                                  id: 'local-video',
+                                                  match: {
+                                                    models: ['local-video'],
+                                                    modes: ['text_to_video'],
+                                                  },
+                                                  workflow: {},
+                                                },
+                                              ],
+                                            },
+                                          },
+                                          null,
+                                          2
+                                        )}
+                                        heightClassName='h-72 min-h-72 max-h-72'
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+
                             {currentType === CHANNEL_TYPE_ADVANCED_CUSTOM && (
                               <FormField
                                 control={form.control}
@@ -4233,9 +4284,7 @@ export function ChannelMutateDrawer({
                                         <SelectValue />
                                       </SelectTrigger>
                                     </FormControl>
-                                    <SelectContent
-                                      alignItemWithTrigger={false}
-                                    >
+                                    <SelectContent alignItemWithTrigger={false}>
                                       <SelectGroup>
                                         <SelectItem value='auto'>
                                           {t('Auto')}

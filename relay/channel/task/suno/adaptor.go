@@ -23,6 +23,8 @@ type TaskAdaptor struct {
 	ChannelType int
 }
 
+func (a *TaskAdaptor) GetCapabilities() []string { return []string{"audio"} }
+
 // ParseTaskResult is not used for Suno tasks.
 // Suno polling uses a dedicated batch-fetch path (service.UpdateSunoTasks) that
 // receives dto.TaskResponse[[]dto.SunoDataResponse] from the upstream /fetch API.

@@ -19,8 +19,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    image: new-api-dev:local
-    container_name: new-api-dev
+    image: relayclaw-ce-dev:local
+    container_name: relayclaw-ce-dev
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -46,14 +46,14 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: new-api-dev-redis
+    container_name: relayclaw-ce-dev-redis
     restart: unless-stopped
     networks:
       - dev-network
 
   postgres:
     image: postgres:15-alpine
-    container_name: new-api-dev-pg
+    container_name: relayclaw-ce-dev-pg
     restart: unless-stopped
     environment:
       POSTGRES_USER: root

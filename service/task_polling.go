@@ -539,16 +539,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		if task.FinishTime == 0 {
 			task.FinishTime = now
 		}
-		if strings.HasPrefix(taskResult.Url, "data:") {
-			// data: URI (e.g. Vertex base64 encoded video) — keep in Data, not in ResultURL
-			task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
-		} else if taskResult.Url != "" {
-			// Direct upstream URL (e.g. Kling, Ali, Doubao, etc.)
-			task.PrivateData.ResultURL = taskResult.Url
-		} else {
-			// No URL from adaptor — construct proxy URL using public task ID
-			task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
-		}
+		applyTaskResultURL(task, taskResult)
 		shouldSettle = true
 	case model.TaskStatusFailure:
 		logger.LogJson(ctx, fmt.Sprintf("Task %s failed", taskId), task)
@@ -601,10 +592,28 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	return nil
 }
 
+func applyTaskResultURL(task *model.Task, result *relaycommon.TaskInfo) {
+	if result.RemoteUrl != "" {
+		task.PrivateData.UpstreamResultURL = result.RemoteUrl
+		task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
+	} else if strings.HasPrefix(result.Url, "data:") {
+		// Keep data URIs in task data and expose only the authenticated proxy.
+		task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
+	} else if result.Url != "" {
+		task.PrivateData.ResultURL = result.Url
+	} else {
+		task.PrivateData.ResultURL = taskcommon.BuildProxyURL(task.TaskID)
+	}
+}
+
 func redactVideoResponseBody(body []byte) []byte {
 	var m map[string]any
 	if err := common.Unmarshal(body, &m); err != nil {
 		return body
+	}
+	if _, isComfyUIHistory := m["prompt_id"]; isComfyUIHistory {
+		delete(m, "base_url")
+		delete(m, "url")
 	}
 	resp, _ := m["response"].(map[string]any)
 	if resp != nil {

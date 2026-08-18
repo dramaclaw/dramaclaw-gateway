@@ -58,7 +58,10 @@ const (
 	ChannelTypeAdvancedCustom = 58
 	ChannelTypeSub2API        = 59
 	ChannelTypeNewAPI         = 60
-	ChannelTypeDummy          // this one is only for count, do not add any channel after this
+	ChannelTypeFal            = 61
+	// Keep 63 aligned with DramaClaw and the commercial RelayClaw channel ID.
+	ChannelTypeComfyUI = 63
+	ChannelTypeDummy   // this one is only for count, do not add any channel after this
 
 )
 
@@ -124,6 +127,9 @@ var ChannelBaseURLs = []string{
 	"",                                          //58
 	"",                                          //59
 	"",                                          //60
+	"https://fal.run",                           //61
+	"",                                          //62
+	"http://127.0.0.1:8188",                     //63, ComfyUI
 }
 
 var ChannelTypeNames = map[int]string{
@@ -184,6 +190,8 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeAdvancedCustom: "Advanced Custom",
 	ChannelTypeSub2API:        "Sub2API",
 	ChannelTypeNewAPI:         "New API",
+	ChannelTypeFal:            "fal.ai",
+	ChannelTypeComfyUI:        "ComfyUI",
 }
 
 func GetChannelTypeName(channelType int) string {

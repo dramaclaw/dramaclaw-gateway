@@ -1,8 +1,12 @@
 package taskcommon
 
 import (
+	"crypto/hmac"
 	"encoding/base64"
 	"fmt"
+	"net/url"
+	"strconv"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -64,6 +68,30 @@ func DecodeLocalTaskID(id string) (string, error) {
 // e.g., "https://your-server.com/v1/videos/task_xxxx/content"
 func BuildProxyURL(taskID string) string {
 	return fmt.Sprintf("%s/v1/videos/%s/content", system_setting.ServerAddress, taskID)
+}
+
+func BuildPublicProxyURL(taskID string) string {
+	return system_setting.ServerAddress + BuildPublicProxyPath(taskID)
+}
+
+func BuildPublicProxyPath(taskID string) string {
+	expires := time.Now().Add(24 * time.Hour).Unix()
+	values := url.Values{}
+	values.Set("expires", strconv.FormatInt(expires, 10))
+	values.Set("signature", common.GenerateHMAC(publicProxySignaturePayload(taskID, expires)))
+	return fmt.Sprintf("/v1/public/videos/%s/content?%s", taskID, values.Encode())
+}
+
+func ValidatePublicProxySignature(taskID string, expires int64, signature string) bool {
+	if taskID == "" || signature == "" || expires < time.Now().Unix() {
+		return false
+	}
+	expected := common.GenerateHMAC(publicProxySignaturePayload(taskID, expires))
+	return hmac.Equal([]byte(signature), []byte(expected))
+}
+
+func publicProxySignaturePayload(taskID string, expires int64) string {
+	return fmt.Sprintf("video_proxy:%s:%d", taskID, expires)
 }
 
 // Status-to-progress mapping constants for polling updates.

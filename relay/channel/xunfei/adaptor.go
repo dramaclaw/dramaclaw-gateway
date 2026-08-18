@@ -18,6 +18,8 @@ type Adaptor struct {
 	request *dto.GeneralOpenAIRequest
 }
 
+func (a *Adaptor) GetBaseURLPolicy() (bool, bool) { return false, false }
+
 func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dto.GeminiChatRequest) (any, error) {
 	//TODO implement me
 	return nil, errors.New("not implemented")

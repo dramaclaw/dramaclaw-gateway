@@ -20,6 +20,8 @@ import (
 type Adaptor struct {
 }
 
+func (a *Adaptor) GetCapabilities() []string { return []string{"embedding", "rerank"} }
+
 func (a *Adaptor) ConvertGeminiRequest(*gin.Context, *relaycommon.RelayInfo, *dto.GeminiChatRequest) (any, error) {
 	//TODO implement me
 	return nil, errors.New("not implemented")

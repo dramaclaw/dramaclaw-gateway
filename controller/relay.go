@@ -489,6 +489,12 @@ func RelayTaskFetch(c *gin.Context) {
 	}
 }
 
+func RelayTaskCancel(c *gin.Context) {
+	if taskErr := relay.RelayTaskCancel(c); taskErr != nil {
+		respondTaskError(c, taskErr)
+	}
+}
+
 func RelayTask(c *gin.Context) {
 	relayInfo, err := relaycommon.GenRelayInfo(c, types.RelayFormatTask, nil, nil)
 	if err != nil {

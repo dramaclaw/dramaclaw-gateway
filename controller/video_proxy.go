@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
@@ -31,14 +33,34 @@ func videoProxyError(c *gin.Context, status int, errType, message string) {
 }
 
 func VideoProxy(c *gin.Context) {
+	videoProxy(c, false)
+}
+
+func PublicVideoProxy(c *gin.Context) {
+	videoProxy(c, true)
+}
+
+func videoProxy(c *gin.Context, public bool) {
 	taskID := c.Param("task_id")
 	if taskID == "" {
 		videoProxyError(c, http.StatusBadRequest, "invalid_request_error", "task_id is required")
 		return
 	}
 
-	userID := c.GetInt("id")
-	task, exists, err := model.GetByTaskId(userID, taskID)
+	var task *model.Task
+	var exists bool
+	var err error
+	if public {
+		expires, parseErr := strconv.ParseInt(c.Query("expires"), 10, 64)
+		if parseErr != nil || !taskcommon.ValidatePublicProxySignature(taskID, expires, c.Query("signature")) {
+			videoProxyError(c, http.StatusUnauthorized, "invalid_request_error", "invalid or expired signature")
+			return
+		}
+		task, exists, err = model.GetByOnlyTaskId(taskID)
+	} else {
+		userID := c.GetInt("id")
+		task, exists, err = model.GetByTaskId(userID, taskID)
+	}
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Failed to query task %s: %s", taskID, err.Error()))
 		videoProxyError(c, http.StatusInternalServerError, "server_error", "Failed to query task")
@@ -67,6 +89,7 @@ func VideoProxy(c *gin.Context) {
 	}
 
 	var videoURL string
+	trustedChannelURL := false
 	proxy := channel.GetSetting().Proxy
 	client := service.GetSSRFProtectedHTTPClient()
 	if proxy != "" {
@@ -114,6 +137,26 @@ func VideoProxy(c *gin.Context) {
 	case constant.ChannelTypeOpenAI, constant.ChannelTypeSora:
 		videoURL = fmt.Sprintf("%s/v1/videos/%s/content", baseURL, task.GetUpstreamTaskID())
 		req.Header.Set("Authorization", "Bearer "+channel.Key)
+	case constant.ChannelTypeComfyUI:
+		videoURL = strings.TrimSpace(task.PrivateData.UpstreamResultURL)
+		if videoURL == "" {
+			videoURL = task.GetResultURL()
+		}
+		if !sameURLOrigin(videoURL, baseURL) {
+			logger.LogError(c.Request.Context(), fmt.Sprintf("ComfyUI result URL origin does not match channel base URL for task %s", taskID))
+			videoProxyError(c, http.StatusForbidden, "server_error", "ComfyUI result URL is not trusted")
+			return
+		}
+		trustedChannelURL = true
+		client, err = service.GetHttpClientWithProxy(proxy)
+		if err != nil {
+			videoProxyError(c, http.StatusInternalServerError, "server_error", "Failed to create proxy client")
+			return
+		}
+		if strings.TrimSpace(channel.Key) != "" {
+			req.Header.Set("Authorization", "Bearer "+channel.Key)
+			req.Header.Set("X-API-Key", channel.Key)
+		}
 	default:
 		// Video URL is stored in PrivateData.ResultURL (fallback to FailReason for old data)
 		videoURL = task.GetResultURL()
@@ -135,7 +178,9 @@ func VideoProxy(c *gin.Context) {
 	}
 
 	var validateErr error
-	if proxy == "" {
+	if trustedChannelURL {
+		validateErr = nil
+	} else if proxy == "" {
 		validateErr = service.ValidateSSRFProtectedFetchURL(videoURL)
 	} else {
 		fetchSetting := system_setting.GetFetchSetting()
@@ -180,6 +225,15 @@ func VideoProxy(c *gin.Context) {
 	if _, err = io.Copy(c.Writer, resp.Body); err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Failed to stream video content: %s", err.Error()))
 	}
+}
+
+func sameURLOrigin(rawURL, baseURL string) bool {
+	result, resultErr := url.Parse(strings.TrimSpace(rawURL))
+	base, baseErr := url.Parse(strings.TrimSpace(baseURL))
+	if resultErr != nil || baseErr != nil || !result.IsAbs() || !base.IsAbs() {
+		return false
+	}
+	return strings.EqualFold(result.Scheme, base.Scheme) && strings.EqualFold(result.Host, base.Host)
 }
 
 func writeVideoDataURL(c *gin.Context, dataURL string) error {
