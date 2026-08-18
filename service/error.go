@@ -197,6 +197,14 @@ func TaskErrorWrapperLocal(err error, code string, statusCode int) *taskdto.Task
 	return openaiErr
 }
 
+type taskErrorMetadata interface {
+	error
+	TaskErrorCode() string
+	TaskErrorStatusCode() int
+	TaskErrorLocal() bool
+	TaskErrorData() any
+}
+
 func TaskErrorWrapper(err error, code string, statusCode int) *taskdto.TaskError {
 	text := err.Error()
 	lowerText := strings.ToLower(text)
@@ -211,6 +219,17 @@ func TaskErrorWrapper(err error, code string, statusCode int) *taskdto.TaskError
 		Message:    text,
 		StatusCode: statusCode,
 		Error:      err,
+	}
+	var metadata taskErrorMetadata
+	if errors.As(err, &metadata) {
+		if metadataCode := metadata.TaskErrorCode(); metadataCode != "" {
+			taskError.Code = metadataCode
+		}
+		if metadataStatusCode := metadata.TaskErrorStatusCode(); metadataStatusCode > 0 {
+			taskError.StatusCode = metadataStatusCode
+		}
+		taskError.LocalError = metadata.TaskErrorLocal()
+		taskError.Data = metadata.TaskErrorData()
 	}
 
 	return taskError

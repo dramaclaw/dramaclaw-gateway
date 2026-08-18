@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,28 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+type testTaskErrorMetadata struct{}
+
+func (e *testTaskErrorMetadata) Error() string            { return "invalid reference media" }
+func (e *testTaskErrorMetadata) TaskErrorCode() string    { return "invalid_request" }
+func (e *testTaskErrorMetadata) TaskErrorStatusCode() int { return http.StatusBadRequest }
+func (e *testTaskErrorMetadata) TaskErrorLocal() bool     { return true }
+func (e *testTaskErrorMetadata) TaskErrorData() any {
+	return map[string]any{"field": "reference_images"}
+}
+
+func TestTaskErrorWrapperPreservesAdapterErrorMetadata(t *testing.T) {
+	err := fmt.Errorf("build request: %w", &testTaskErrorMetadata{})
+
+	taskErr := TaskErrorWrapper(err, "build_request_failed", http.StatusInternalServerError)
+
+	require.Equal(t, "invalid_request", taskErr.Code)
+	require.Equal(t, http.StatusBadRequest, taskErr.StatusCode)
+	require.True(t, taskErr.LocalError)
+	require.Equal(t, map[string]any{"field": "reference_images"}, taskErr.Data)
+	require.True(t, errors.Is(taskErr.Error, errors.Unwrap(err)))
+}
 
 func TestResetStatusCode(t *testing.T) {
 	t.Parallel()
