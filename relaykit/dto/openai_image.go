@@ -38,6 +38,12 @@ type ImageRequest struct {
 	WatermarkEnabled json.RawMessage `json:"watermark_enabled,omitempty"`
 	UserId           json.RawMessage `json:"user_id,omitempty"`
 	Image            json.RawMessage `json:"image,omitempty"`
+	// DC-Media-Protocol geometry is normalized into Size before forwarding.
+	// Keeping these fields internal prevents unsupported metadata from leaking
+	// into OpenAI-compatible upstream requests.
+	Width    int            `json:"-"`
+	Height   int            `json:"-"`
+	Metadata map[string]any `json:"-"`
 	// 用匿名参数接收额外参数
 	Extra map[string]json.RawMessage `json:"-"`
 }
@@ -59,10 +65,28 @@ func (i *ImageRequest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*i = ImageRequest(known)
+	if raw, ok := rawMap["width"]; ok {
+		if err := kitutil.Unmarshal(raw, &i.Width); err != nil {
+			return err
+		}
+	}
+	if raw, ok := rawMap["height"]; ok {
+		if err := kitutil.Unmarshal(raw, &i.Height); err != nil {
+			return err
+		}
+	}
+	if raw, ok := rawMap["metadata"]; ok {
+		if err := kitutil.Unmarshal(raw, &i.Metadata); err != nil {
+			return err
+		}
+	}
 
 	// 提取多余字段
 	i.Extra = make(map[string]json.RawMessage)
 	for k, v := range rawMap {
+		if k == "width" || k == "height" || k == "metadata" {
+			continue
+		}
 		if _, ok := knownFields[k]; !ok {
 			i.Extra[k] = v
 		}

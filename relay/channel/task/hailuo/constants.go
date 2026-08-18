@@ -5,6 +5,7 @@ const (
 )
 
 var ModelList = []string{
+	"MiniMax-H3",
 	"MiniMax-Hailuo-2.3",
 	"MiniMax-Hailuo-2.3-Fast",
 	"MiniMax-Hailuo-02",
@@ -19,6 +20,8 @@ var ModelList = []string{
 const (
 	TextToVideoEndpoint = "/v1/video_generation"
 	QueryTaskEndpoint   = "/v1/query/video_generation"
+	H3VideoEndpoint     = "/v2/video_generation"
+	H3QueryTaskEndpoint = "/v2/query/video_generation"
 )
 
 const (

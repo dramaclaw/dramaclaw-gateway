@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -277,26 +277,52 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 		Content: []ContentItem{},
 	}
 
-	// Add images if present
-	if req.HasImage() {
-		for _, imgURL := range req.Images {
-			r.Content = append(r.Content, ContentItem{
-				Type: "image_url",
-				ImageURL: &MediaURL{
-					URL: imgURL,
-				},
-			})
+	// DC-Media fields are authoritative. Do not parse or forward
+	// supplier-shaped metadata.content; rebuild content below from canonical
+	// media fields.
+	metadata := make(map[string]interface{}, len(req.Metadata))
+	for key, value := range req.Metadata {
+		if key != "content" {
+			metadata[key] = value
 		}
 	}
-
-	metadata := req.Metadata
 	if err := taskcommon.UnmarshalMetadata(metadata, &r); err != nil {
 		return nil, errors.Wrap(err, "unmarshal metadata failed")
 	}
-
-	if sec, _ := strconv.Atoi(req.Seconds); sec > 0 {
-		r.Duration = lo.ToPtr(dto.IntValue(sec))
+	dcMetadata := relaycommon.DCMediaMetadata{}
+	if err := req.UnmarshalMetadata(&dcMetadata); err != nil {
+		return nil, errors.Wrap(err, "unmarshal DC media metadata failed")
 	}
+	seenImages := map[string]bool{}
+	appendImage := func(rawURL, role string) {
+		if rawURL = strings.TrimSpace(rawURL); rawURL != "" {
+			identity := role + "\x00" + rawURL
+			if seenImages[identity] {
+				return
+			}
+			seenImages[identity] = true
+			r.Content = append(r.Content, ContentItem{Type: "image_url", ImageURL: &MediaURL{URL: rawURL}, Role: role})
+		}
+	}
+	appendImage(req.Image, "first_frame")
+	appendImage(dcMetadata.LastFrameImage, "last_frame")
+	for _, rawURL := range dcMetadata.ReferenceImages {
+		appendImage(rawURL, "reference_image")
+	}
+	for _, rawURL := range dcMetadata.ReferenceVideos {
+		if rawURL = strings.TrimSpace(rawURL); rawURL != "" {
+			r.Content = append(r.Content, ContentItem{Type: "video_url", VideoURL: &MediaURL{URL: rawURL}, Role: "reference_video"})
+		}
+	}
+	for _, rawURL := range dcMetadata.ReferenceAudios {
+		if rawURL = strings.TrimSpace(rawURL); rawURL != "" {
+			r.Content = append(r.Content, ContentItem{Type: "audio_url", AudioURL: &MediaURL{URL: rawURL}, Role: "reference_audio"})
+		}
+	}
+	if req.Duration > 0 {
+		r.Duration = lo.ToPtr(dto.IntValue(req.Duration))
+	}
+	r.Ratio = doubaoUpstreamRatio(r.Ratio)
 
 	r.Content = lo.Reject(r.Content, func(c ContentItem, _ int) bool { return c.Type == "text" })
 	r.Content = append(r.Content, ContentItem{
@@ -305,6 +331,13 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 	})
 
 	return &r, nil
+}
+
+func doubaoUpstreamRatio(ratio string) string {
+	if strings.EqualFold(strings.TrimSpace(ratio), "auto") {
+		return "adaptive"
+	}
+	return ratio
 }
 
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {

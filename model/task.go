@@ -25,6 +25,8 @@ func (t TaskStatus) ToVideoStatus() string {
 		status = dto.VideoStatusCompleted
 	case TaskStatusFailure:
 		status = dto.VideoStatusFailed
+	case TaskStatusCancelled:
+		status = dto.VideoStatusCancelled
 	default:
 		status = dto.VideoStatusUnknown // Default fallback
 	}
@@ -38,6 +40,7 @@ const (
 	TaskStatusInProgress            = "IN_PROGRESS"
 	TaskStatusFailure               = "FAILURE"
 	TaskStatusSuccess               = "SUCCESS"
+	TaskStatusCancelled             = "CANCELLED"
 	TaskStatusUnknown               = "UNKNOWN"
 )
 
@@ -101,9 +104,10 @@ func (m Properties) Value() (driver.Value, error) {
 }
 
 type TaskPrivateData struct {
-	Key            string `json:"key,omitempty"`
-	UpstreamTaskID string `json:"upstream_task_id,omitempty"` // 上游真实 task ID
-	ResultURL      string `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
+	Key               string `json:"key,omitempty"`
+	UpstreamTaskID    string `json:"upstream_task_id,omitempty"`    // 上游真实 task ID
+	ResultURL         string `json:"result_url,omitempty"`          // 任务成功后的结果 URL（视频地址等）
+	UpstreamResultURL string `json:"upstream_result_url,omitempty"` // 仅供受控结果代理访问的上游 URL
 	// 计费上下文：用于异步退款/差额结算（轮询阶段读取）
 	BillingSource  string              `json:"billing_source,omitempty"`  // "wallet" 或 "subscription"
 	SubscriptionId int                 `json:"subscription_id,omitempty"` // 订阅 ID，用于订阅退款
@@ -297,7 +301,7 @@ func TaskGetAllTasks(startIdx int, num int, queryParams SyncTaskQueryParams) []*
 func GetTimedOutUnfinishedTasks(cutoffUnix int64, limit int) []*Task {
 	var tasks []*Task
 	err := DB.Where("progress != ?", "100%").
-		Where("status NOT IN ?", []string{TaskStatusFailure, TaskStatusSuccess}).
+		Where("status NOT IN ?", []string{TaskStatusFailure, TaskStatusSuccess, TaskStatusCancelled}).
 		Where("submit_time < ?", cutoffUnix).
 		Order("submit_time").
 		Limit(limit).
@@ -312,7 +316,7 @@ func GetAllUnFinishSyncTasks(limit int) []*Task {
 	var tasks []*Task
 	var err error
 	// get all tasks progress is not 100%
-	err = DB.Where("progress != ?", "100%").Where("status != ?", TaskStatusFailure).Where("status != ?", TaskStatusSuccess).Limit(limit).Order("id").Find(&tasks).Error
+	err = DB.Where("progress != ?", "100%").Where("status NOT IN ?", []string{TaskStatusFailure, TaskStatusSuccess, TaskStatusCancelled}).Limit(limit).Order("id").Find(&tasks).Error
 	if err != nil {
 		return nil
 	}
@@ -327,8 +331,7 @@ func HasUnfinishedSyncTasks() bool {
 	var id int64
 	err := DB.Model(&Task{}).
 		Where("progress != ?", "100%").
-		Where("status != ?", TaskStatusFailure).
-		Where("status != ?", TaskStatusSuccess).
+		Where("status NOT IN ?", []string{TaskStatusFailure, TaskStatusSuccess, TaskStatusCancelled}).
 		Limit(1).
 		Pluck("id", &id).Error
 	return err == nil && id != 0
@@ -347,6 +350,20 @@ func GetByTaskId(userId int, taskId string) (*Task, bool, error) {
 		return nil, false, err
 	}
 	return task, exist, err
+}
+
+// GetByOnlyTaskId is reserved for endpoints that authenticate access without a user ID.
+func GetByOnlyTaskId(taskId string) (*Task, bool, error) {
+	if taskId == "" {
+		return nil, false, nil
+	}
+	var task *Task
+	err := DB.Where("task_id = ?", taskId).First(&task).Error
+	exist, err := RecordExist(err)
+	if err != nil {
+		return nil, false, err
+	}
+	return task, exist, nil
 }
 
 func GetByTaskIds(userId int, taskIds []any) ([]*Task, error) {

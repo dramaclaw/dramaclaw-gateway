@@ -313,7 +313,7 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 			if req != nil {
 				modelRequest.Model = req.Model
 			}
-		} else if c.Request.Method == http.MethodGet {
+		} else if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodDelete {
 			relayMode = relayconstant.RelayModeVideoFetchByID
 			shouldSelectChannel = false
 			modelRequest.Model = getTaskOriginModelName(c)

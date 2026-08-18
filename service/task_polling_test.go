@@ -454,6 +454,28 @@ func TestRunTaskPollingOnceDoesNotRefundHistoricalFailedTask(t *testing.T) {
 	assert.Equal(t, int64(0), countLogs(t))
 }
 
+func TestApplyTaskResultURLKeepsPrivateUpstreamBehindProxy(t *testing.T) {
+	task := &model.Task{TaskID: "task_public"}
+	result := &relaycommon.TaskInfo{RemoteUrl: "http://127.0.0.1:8188/view?filename=out.mp4"}
+
+	applyTaskResultURL(task, result)
+
+	assert.Equal(t, result.RemoteUrl, task.PrivateData.UpstreamResultURL)
+	assert.Contains(t, task.PrivateData.ResultURL, "/v1/videos/task_public/content")
+}
+
+func TestRedactVideoResponseBodyRemovesComfyUIInternalURLs(t *testing.T) {
+	body := []byte(`{"prompt_id":"prompt-1","base_url":"http://127.0.0.1:8188","url":"http://127.0.0.1:8188/view?filename=out.mp4","status":"succeeded"}`)
+
+	redacted := redactVideoResponseBody(body)
+	var result map[string]any
+	require.NoError(t, common.Unmarshal(redacted, &result))
+	assert.Equal(t, "prompt-1", result["prompt_id"])
+	assert.Equal(t, "succeeded", result["status"])
+	assert.NotContains(t, result, "base_url")
+	assert.NotContains(t, result, "url")
+}
+
 func TestSweepTimedOutTasksHonorsRefundRolloutBoundary(t *testing.T) {
 	truncate(t)
 

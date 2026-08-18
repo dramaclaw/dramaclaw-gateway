@@ -85,6 +85,7 @@ type ChannelOtherSettings struct {
 	UpstreamModelUpdateLastRemovedModels  []string              `json:"upstream_model_update_last_removed_models,omitempty"`  // 上次检测到的可删除模型
 	UpstreamModelUpdateIgnoredModels      []string              `json:"upstream_model_update_ignored_models,omitempty"`       // 手动忽略的模型
 	AdvancedCustom                        *AdvancedCustomConfig `json:"advanced_custom,omitempty"`
+	ComfyUI                               *ComfyUISettings      `json:"comfyui,omitempty"`
 }
 
 func (s *ChannelOtherSettings) IsOpenRouterEnterprise() bool {
@@ -92,6 +93,65 @@ func (s *ChannelOtherSettings) IsOpenRouterEnterprise() bool {
 		return false
 	}
 	return *s.OpenRouterEnterprise
+}
+
+type ComfyUISettings struct {
+	Workflow        any                            `json:"workflow,omitempty"`
+	WorkflowByModel map[string]any                 `json:"workflow_by_model,omitempty"`
+	WorkflowRoutes  []ComfyUIWorkflowRoute         `json:"workflow_routes,omitempty"`
+	NodeMappings    ComfyUINodeMappings            `json:"node_mappings,omitempty"`
+	ModelMappings   map[string]ComfyUINodeMappings `json:"model_mappings,omitempty"`
+	ClientID        string                         `json:"client_id,omitempty"`
+	OutputBaseURL   string                         `json:"output_base_url,omitempty"`
+}
+
+type ComfyUIWorkflowRoute struct {
+	ID           string               `json:"id"`
+	Name         string               `json:"name,omitempty"`
+	Priority     int                  `json:"priority,omitempty"`
+	Match        ComfyUIWorkflowMatch `json:"match"`
+	Workflow     any                  `json:"workflow"`
+	NodeMappings ComfyUINodeMappings  `json:"node_mappings,omitempty"`
+}
+
+type ComfyUIWorkflowMatch struct {
+	Models          []string          `json:"models,omitempty"`
+	Modes           []string          `json:"modes,omitempty"`
+	Resolutions     []string          `json:"resolutions,omitempty"`
+	Ratios          []string          `json:"ratios,omitempty"`
+	MinDuration     int               `json:"min_duration,omitempty"`
+	MaxDuration     int               `json:"max_duration,omitempty"`
+	ReferenceImages ComfyUICountRange `json:"reference_images,omitempty"`
+	ReferenceVideos ComfyUICountRange `json:"reference_videos,omitempty"`
+	ReferenceAudios ComfyUICountRange `json:"reference_audios,omitempty"`
+}
+
+type ComfyUICountRange struct {
+	Min *int `json:"min,omitempty"`
+	Max *int `json:"max,omitempty"`
+}
+
+type ComfyUINodeMappings struct {
+	PromptNodeID         string `json:"prompt_node_id,omitempty"`
+	PromptInput          string `json:"prompt_input,omitempty"`
+	NegativePromptNodeID string `json:"negative_prompt_node_id,omitempty"`
+	NegativePromptInput  string `json:"negative_prompt_input,omitempty"`
+	ImageNodeID          string `json:"image_node_id,omitempty"`
+	ImageInput           string `json:"image_input,omitempty"`
+	LastFrameNodeID      string `json:"last_frame_node_id,omitempty"`
+	LastFrameInput       string `json:"last_frame_input,omitempty"`
+	WidthNodeID          string `json:"width_node_id,omitempty"`
+	WidthInput           string `json:"width_input,omitempty"`
+	HeightNodeID         string `json:"height_node_id,omitempty"`
+	HeightInput          string `json:"height_input,omitempty"`
+	DurationNodeID       string `json:"duration_node_id,omitempty"`
+	DurationInput        string `json:"duration_input,omitempty"`
+	FramesNodeID         string `json:"frames_node_id,omitempty"`
+	FramesInput          string `json:"frames_input,omitempty"`
+	FPSNodeID            string `json:"fps_node_id,omitempty"`
+	FPSInput             string `json:"fps_input,omitempty"`
+	SeedNodeID           string `json:"seed_node_id,omitempty"`
+	SeedInput            string `json:"seed_input,omitempty"`
 }
 
 const (
