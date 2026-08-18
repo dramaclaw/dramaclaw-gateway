@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -286,14 +285,24 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 	if err := req.UnmarshalMetadata(&dcMetadata); err != nil {
 		return nil, errors.Wrap(err, "unmarshal DC media metadata failed")
 	}
+	seenImages := map[string]bool{}
 	appendImage := func(rawURL, role string) {
 		if rawURL = strings.TrimSpace(rawURL); rawURL != "" {
+			if seenImages[rawURL] {
+				return
+			}
+			seenImages[rawURL] = true
 			r.Content = append(r.Content, ContentItem{Type: "image_url", ImageURL: &MediaURL{URL: rawURL}, Role: role})
 		}
 	}
 	appendImage(req.Image, "first_frame")
 	appendImage(dcMetadata.LastFrameImage, "last_frame")
 	for _, rawURL := range dcMetadata.ReferenceImages {
+		appendImage(rawURL, "reference_image")
+	}
+	// `images` is accepted only as an input compatibility field. Preserve
+	// entries beyond the canonical top-level first frame as references.
+	for _, rawURL := range req.AdditionalReferenceImages() {
 		appendImage(rawURL, "reference_image")
 	}
 	for _, rawURL := range dcMetadata.ReferenceVideos {
@@ -306,15 +315,10 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 			r.Content = append(r.Content, ContentItem{Type: "audio_url", AudioURL: &MediaURL{URL: rawURL}, Role: "reference_audio"})
 		}
 	}
-	if req.Image == "" && len(dcMetadata.ReferenceImages) == 0 && len(dcMetadata.ReferenceVideos) == 0 && len(dcMetadata.ReferenceAudios) == 0 {
-		for _, rawURL := range req.Images {
-			appendImage(rawURL, "first_frame")
-		}
+	if req.Duration > 0 {
+		r.Duration = lo.ToPtr(dto.IntValue(req.Duration))
 	}
-
-	if sec, _ := strconv.Atoi(req.Seconds); sec > 0 {
-		r.Duration = lo.ToPtr(dto.IntValue(sec))
-	}
+	r.Ratio = doubaoUpstreamRatio(r.Ratio)
 
 	r.Content = lo.Reject(r.Content, func(c ContentItem, _ int) bool { return c.Type == "text" })
 	r.Content = append(r.Content, ContentItem{
@@ -323,6 +327,13 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 	})
 
 	return &r, nil
+}
+
+func doubaoUpstreamRatio(ratio string) string {
+	if strings.EqualFold(strings.TrimSpace(ratio), "auto") {
+		return "adaptive"
+	}
+	return ratio
 }
 
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {

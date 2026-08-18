@@ -43,3 +43,39 @@ func TestConvertToRequestPayloadKeepsSingleReferenceImageAsReference(t *testing.
 	require.NotEmpty(t, payload.Content)
 	assert.Equal(t, "reference_image", payload.Content[0].Role)
 }
+
+func TestConvertToRequestPayloadTranslatesCanonicalDurationAndRatio(t *testing.T) {
+	req := relaycommon.TaskSubmitReq{
+		Model:    "seedance-test",
+		Prompt:   "prompt",
+		Duration: 10,
+		Metadata: map[string]any{"ratio": "auto"},
+	}
+
+	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req)
+	require.NoError(t, err)
+	require.NotNil(t, payload.Duration)
+	assert.Equal(t, 10, int(*payload.Duration))
+	assert.Equal(t, "adaptive", payload.Ratio)
+}
+
+func TestConvertToRequestPayloadPreservesCompatibilityImages(t *testing.T) {
+	req := relaycommon.TaskSubmitReq{
+		Model:  "seedance-test",
+		Prompt: "prompt",
+		Image:  "https://example.com/first.png",
+		Images: []string{
+			"https://example.com/first.png",
+			"https://example.com/reference.png",
+		},
+	}
+
+	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req)
+	require.NoError(t, err)
+	require.Len(t, payload.Content, 3)
+	assert.Equal(t, "first_frame", payload.Content[0].Role)
+	assert.Equal(t, "https://example.com/first.png", payload.Content[0].ImageURL.URL)
+	assert.Equal(t, "reference_image", payload.Content[1].Role)
+	assert.Equal(t, "https://example.com/reference.png", payload.Content[1].ImageURL.URL)
+	assert.Equal(t, "text", payload.Content[2].Type)
+}

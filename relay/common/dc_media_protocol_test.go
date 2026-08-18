@@ -128,6 +128,26 @@ func TestValidateBasicTaskRequestStoresCanonicalDCMediaRequest(t *testing.T) {
 	assert.Equal(t, "url", stored.ResponseFormat)
 }
 
+func TestValidateBasicTaskRequestNormalizesSecondsIntoDuration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	request := httptest.NewRequest(http.MethodPost, "/v1/video/generations", strings.NewReader(`{
+		"model":"seedance-test",
+		"prompt":"animate",
+		"seconds":"10"
+	}`))
+	request.Header.Set("Content-Type", "application/json")
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	context.Request = request
+
+	taskErr := ValidateBasicTaskRequest(context, &RelayInfo{TaskRelayInfo: &TaskRelayInfo{}}, constant.TaskActionGenerate)
+	require.Nil(t, taskErr)
+	stored, err := GetTaskRequest(context)
+	require.NoError(t, err)
+	assert.Equal(t, 10, stored.Duration)
+	assert.True(t, stored.DurationSet)
+	assert.Empty(t, stored.Seconds)
+}
+
 func TestValidateBasicTaskRequestReturnsDCMediaErrorCode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	request := httptest.NewRequest(http.MethodPost, "/v1/video/generations", strings.NewReader(`{

@@ -1303,8 +1303,14 @@ func firstOutputViewURL(entry map[string]any, baseURL string) string {
 	if !ok {
 		return ""
 	}
+	nodeIDs := make([]string, 0, len(outputs))
+	for nodeID := range outputs {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	sort.Strings(nodeIDs)
 	for _, key := range []string{"videos", "gifs", "images"} {
-		for _, output := range outputs {
+		for _, nodeID := range nodeIDs {
+			output := outputs[nodeID]
 			outputMap, ok := output.(map[string]any)
 			if !ok {
 				continue

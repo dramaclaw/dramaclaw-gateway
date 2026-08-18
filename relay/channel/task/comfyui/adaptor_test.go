@@ -1013,6 +1013,18 @@ func TestParseComfyUIHistoryVideoOutput(t *testing.T) {
 	assert.Equal(t, wrapped.URL, info.RemoteUrl)
 }
 
+func TestFirstOutputViewURLUsesStableNodeOrder(t *testing.T) {
+	entry := map[string]any{
+		"outputs": map[string]any{
+			"20": map[string]any{"videos": []any{map[string]any{"filename": "second.mp4"}}},
+			"10": map[string]any{"videos": []any{map[string]any{"filename": "first.mp4"}}},
+		},
+	}
+
+	result := firstOutputViewURL(entry, "http://127.0.0.1:8188")
+	assert.Equal(t, "http://127.0.0.1:8188/view?filename=first.mp4&type=output", result)
+}
+
 func TestFetchTaskUsesChannelBaseURLForInternalResultURL(t *testing.T) {
 	body := []byte(`{
 		"prompt-1": {
