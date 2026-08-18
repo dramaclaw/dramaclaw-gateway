@@ -19,6 +19,15 @@
 - [ ] 显式 `false`、`0`、`watermark` 和 `generate_audio` 不会被 `omitempty` 丢失。
 - [ ] 不支持的组合在上游请求前返回稳定错误。
 
+## 音频扩展规范
+
+- [ ] 继续使用 `/v1/audio/speech` 和 `dto.AudioRequest`，没有新增平行音频路由。
+- [ ] 基础字段使用 OpenAI Speech API 语义，扩展字段只放在 DC-Media `metadata`。
+- [ ] 基础 TTS、参考音频合成和音乐生成由公共 Profile 一致识别和校验。
+- [ ] 供应商字段只存在于渠道适配器，不进入 DramaClaw 公共请求。
+- [ ] 模型不支持请求中的参考音频、情感或音乐能力时明确拒绝。
+- [ ] 音频响应使用二进制、规范 URL 或规范 Base64 形式。
+
 ## 异步任务
 
 - [ ] 创建响应只暴露 RelayClaw CE 的公开任务 ID。

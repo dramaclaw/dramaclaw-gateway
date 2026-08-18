@@ -14,6 +14,10 @@
 推断。适配器必须继续保留素材角色：顶层 `image` 是首帧，
 `metadata.reference_images` 始终是参考图，不能把第一张参考图提升为首帧。
 
+独立音频生成继续使用 OpenAI 兼容的 `/v1/audio/speech` 和 `dto.AudioRequest`。
+`relay/common.NormalizeDCMediaAudioRequest` 负责应用 DC-Media Audio Profile，识别基础
+TTS、参考音频合成和音乐生成。不得为音频 Profile 新增平行路由或请求 DTO。
+
 ## 目录与注册
 
 异步媒体适配器放在 `relay/channel/task/<provider>/`。一个完整适配器通常需要：
@@ -27,6 +31,11 @@
 `TaskAdaptor` 的职责分为验证、请求构造、提交响应解析、任务查询和查询响应解析。
 公共任务 ID 与供应商任务 ID 必须分开保存，客户端只能看到 RelayClaw CE 生成的
 `task_*` ID。
+
+同步音频适配继续实现 `channel.Adaptor.ConvertAudioRequest` 和 `DoResponse`。公共层只
+解析和校验 DC-Media `metadata`；供应商端点、鉴权、请求 DTO 和响应字段仍保留在
+`relay/channel/<provider>/` 中。适配器必须明确拒绝不支持的音频请求形态，不能降级为
+基础 TTS 后静默忽略参考音频或音乐参数。
 
 ## 请求转换
 
@@ -73,10 +82,18 @@
 - 状态、结果 URL 和错误映射；
 - 若支持取消，覆盖排队、运行中、已结束和重复取消。
 
+音频适配器还应覆盖：
+
+- OpenAI 基础 TTS 字段转换；
+- 支持的参考音频、情感或音乐 `metadata`；
+- 显式 `false` 和输出格式不会丢失；
+- 模型与音频请求形态不匹配时在调用上游前失败；
+- 二进制、URL 或 Base64 上游结果被转换为规范响应。
+
 常用验证命令：
 
 ```bash
-go test ./relay/common ./relay/channel/task/<provider>
+go test ./relay/common ./relay/channel/task/<provider> ./relay/channel/<provider>
 cd relaykit && GOWORK=off go build ./...
 cd web && bun run typecheck && bun run build
 ```

@@ -19,6 +19,15 @@
 - [ ] Explicit `false`, `0`, `watermark`, and `generate_audio` values are not lost through `omitempty`.
 - [ ] Unsupported combinations return a stable error before the upstream request.
 
+## Audio Profile
+
+- [ ] `/v1/audio/speech` and `dto.AudioRequest` are reused without a parallel audio route.
+- [ ] Base fields keep OpenAI Speech API semantics; extensions exist only in DC-Media `metadata`.
+- [ ] Basic TTS, reference speech, and music are classified and validated consistently by the shared profile.
+- [ ] Provider fields remain inside the channel adapter and do not enter the DramaClaw request contract.
+- [ ] Models explicitly reject unsupported reference-audio, emotion, or music capabilities.
+- [ ] Audio responses use binary, canonical URL, or canonical Base64 forms.
+
 ## Asynchronous Tasks
 
 - [ ] The creation response exposes only the RelayClaw CE public task ID.

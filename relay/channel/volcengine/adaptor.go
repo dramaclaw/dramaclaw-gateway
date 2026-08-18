@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	channelconstant "github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
@@ -50,6 +51,13 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 	if info.RelayMode != constant.RelayModeAudioSpeech {
 		return nil, errors.New("unsupported audio relay mode")
 	}
+	profile, err := relaycommon.NormalizeDCMediaAudioRequest(&request)
+	if err != nil {
+		return nil, err
+	}
+	if profile.Kind != relaycommon.DCMediaAudioKindSpeech {
+		return nil, fmt.Errorf("volcengine audio supports only basic speech requests, got %s", profile.Kind)
+	}
 
 	appID, token, err := parseVolcengineAuth(info.ApiKey)
 	if err != nil {
@@ -59,6 +67,10 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 	voiceType := mapVoiceType(request.Voice)
 	speedRatio := lo.FromPtrOr(request.Speed, 0.0)
 	encoding := mapEncoding(request.ResponseFormat)
+	upstreamModel := strings.TrimSpace(info.UpstreamModelName)
+	if upstreamModel == "" {
+		upstreamModel = strings.TrimSpace(info.OriginModelName)
+	}
 
 	c.Set(contextKeyResponseFormat, encoding)
 
@@ -81,14 +93,8 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 			ReqID:     generateRequestID(),
 			Text:      request.Input,
 			Operation: "submit",
-			Model:     info.OriginModelName,
+			Model:     upstreamModel,
 		},
-	}
-
-	if len(request.Metadata) > 0 {
-		if err = json.Unmarshal(request.Metadata, &volcRequest); err != nil {
-			return nil, fmt.Errorf("error unmarshalling metadata to volcengine request: %w", err)
-		}
 	}
 
 	c.Set(contextKeyTTSRequest, volcRequest)
@@ -97,7 +103,7 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 		info.IsStream = true
 	}
 
-	jsonData, err := json.Marshal(volcRequest)
+	jsonData, err := common.Marshal(volcRequest)
 	if err != nil {
 		return nil, fmt.Errorf("error marshalling volcengine request: %w", err)
 	}

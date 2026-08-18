@@ -94,6 +94,7 @@ func TestConvertAudioRequest(t *testing.T) {
 	reader, err := (&Adaptor{}).ConvertAudioRequest(c, &relaycommon.RelayInfo{
 		RelayMode: relayconstant.RelayModeAudioSpeech,
 	}, dto.AudioRequest{
+		Model:          ModelIndexTTS2,
 		Input:          "hello",
 		ResponseFormat: "mp3",
 		Metadata:       metadata,
@@ -240,6 +241,12 @@ func TestConvertAudioRequestElevenLabsMusic(t *testing.T) {
 func TestConvertAudioRequestElevenLabsMusicMapsResponseFormat(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	metadata, err := common.Marshal(map[string]any{
+		"music_length_ms": 30000,
+	})
+	if err != nil {
+		t.Fatalf("marshal metadata: %v", err)
+	}
 
 	reader, err := (&Adaptor{}).ConvertAudioRequest(c, &relaycommon.RelayInfo{
 		RelayMode: relayconstant.RelayModeAudioSpeech,
@@ -249,6 +256,7 @@ func TestConvertAudioRequestElevenLabsMusicMapsResponseFormat(t *testing.T) {
 	}, dto.AudioRequest{
 		Input:          "Mysterious jungle soundtrack",
 		ResponseFormat: "mp3",
+		Metadata:       metadata,
 	})
 	if err != nil {
 		t.Fatalf("ConvertAudioRequest returned error: %v", err)

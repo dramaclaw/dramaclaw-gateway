@@ -2,11 +2,11 @@
 
 > 状态：草案
 >
-> 适用范围：DramaClaw 图片与视频模型接入
+> 适用范围：DramaClaw 图片、视频与音频模型接入
 >
-> 协议版本：1.0-draft
+> 协议版本：1.1-draft
 
-本文档定义 DramaClaw 向统一模型网关发送图片、视频生成请求时使用的公共协议。新增媒体模型或供应商时，应优先适配本协议，不应在业务层新增供应商专属请求结构。
+本文档定义 DramaClaw 向统一模型网关发送图片、视频和音频生成请求时使用的公共协议。新增媒体模型或供应商时，应优先适配本协议，不应在业务层新增供应商专属请求结构。
 
 本文使用以下规范用语：
 
@@ -30,7 +30,7 @@ DramaClaw 选择业务模式并构造统一请求
 
 各层职责如下：
 
-- **模型目录**：声明模型身份、支持模式、分辨率、比例、素材数量与时长限制，以及可选模型参数。
+- **模型目录**：声明模型身份、支持模式、分辨率、比例、素材数量、时长与音频能力限制，以及可选模型参数。
 - **DramaClaw**：校验用户输入，解析模型目录，生成规范化请求，并保证报价参数与执行参数一致。
 - **统一模型网关**：校验公共字段之间的一致性，将公共值转换为供应商所需格式，并处理供应商差异。
 - **供应商适配器**：只负责字段映射和供应商约束，不得改变公共字段表达的素材角色，也不得静默丢弃输入素材。
@@ -50,8 +50,11 @@ DramaClaw 选择业务模式并构造统一请求
 4. **能力由模型目录声明。** 前端展示和后端校验必须读取同一模型目录；前端限制不能替代后端校验。
 5. **报价与执行共享规范化结果。** 模型、分辨率、时长、素材数量和是否包含视频输入必须一致。
 6. **新代码只产生规范字段。** 旧字段只允许在兼容边界读取，不得继续从新调用链发送。
+7. **音频扩展保持显式。** 音频沿用 OpenAI Speech API 基础字段，参考音频、情感和音乐参数统一放入 `metadata`，并由适配器逐项转换。
 
 ## 3. 接口与基础结构
+
+本节路径均相对于网关的版本化基础路径 `/v1`。例如，音频接口的完整路径是 `/v1/audio/speech`。
 
 ### 3.1 图片接口
 
@@ -141,7 +144,33 @@ POST /images/edits
 }
 ```
 
-### 3.3 公共顶层字段
+### 3.3 DC-Media 音频扩展规范（Audio Profile）
+
+独立语音合成、参考音频合成和音乐生成统一使用：
+
+```http
+POST /audio/speech
+```
+
+DC-Media Audio Profile 不是一套新的并行接口。该规范继续复用 OpenAI Speech API 和 RelayClaw CE 现有的 `dto.AudioRequest`，只通过 `metadata` 表达参考音频、情感控制和音乐生成等扩展语义。供应商适配器必须显式消费这些扩展字段，不得将未知的 `metadata` 原样透传给上游。
+
+当前版本只定义音频生成，不定义 `/audio/transcriptions` 或 `/audio/translations`。
+
+基础语音合成结构：
+
+```json
+{
+  "model": "example-tts-model",
+  "input": "需要合成的文本",
+  "voice": "example-voice",
+  "response_format": "mp3",
+  "speed": 1.0
+}
+```
+
+参考音频合成和音乐生成的完整结构见第 10 节。
+
+### 3.4 图片与视频公共顶层字段
 
 | 字段 | 类型 | 图片 | 视频 | 说明 |
 |---|---|---:|---:|---|
@@ -154,6 +183,19 @@ POST /images/edits
 | `n` | integer | 是 | 是 | 单次请求生成数量；当前默认值为 `1` |
 | `response_format` | string | 是 | 是 | 图片通常为 `b64_json`，视频为 `url` |
 | `metadata` | object | 是 | 是 | 画幅语义、清晰度、参考素材和可选能力 |
+
+### 3.5 音频公共顶层字段
+
+| 字段 | 类型 | 必需 | 说明 |
+|---|---|---:|---|
+| `model` | string | 是 | 网关模型名称；由模型目录解析 |
+| `input` | string | 是 | 待合成文本或音乐描述，不得为空 |
+| `voice` | string | 否 | 音色名称或模型支持的音色 ID |
+| `response_format` | string | 否 | 期望的音频响应格式，默认 `mp3` |
+| `speed` | number | 否 | 语速倍率；仅在模型目录和供应商均支持时发送 |
+| `metadata` | object | 否 | 参考音频、情感控制或音乐生成扩展参数 |
+
+音频请求不使用 `prompt`、`duration`、`width`、`height`、`n` 或视频模式字段。音频用途由模型目录和请求字段确定，不增加顶层 `mode`。
 
 ## 4. 值规范化
 
@@ -524,9 +566,142 @@ adaptive → auto
 - 可选字段不得被重复放在顶层和 `metadata`。
 - 图片请求的 `watermark` 当前是图片端点顶层字段；视频请求的 `watermark` 位于 `metadata`，两者不得混用。
 
-## 10. 响应与任务状态
+## 10. DC-Media 音频扩展规范（Audio Profile）
 
-### 10.1 图片响应
+### 10.1 公共规则
+
+DC-Media Audio Profile 以 OpenAI Speech API 的 `model`、`input`、`voice`、`response_format` 和 `speed` 为基础，在 `metadata` 中增加参考音频、情感控制和音乐生成参数。RelayClaw CE 继续使用现有 `/v1/audio/speech` 路由和 `dto.AudioRequest`，不得为该 Profile 增加独立路由或并行请求 DTO。
+
+规则：
+
+- `model` 和 `input` 必须是非空字符串。
+- 未选择的可选字段应该省略，不得主动填充供应商默认值。
+- `voice`、`speed` 只在模型目录声明支持时发送。
+- `response_format` 默认是 `mp3`；当前规范值为 `mp3`、`opus`、`pcm`、`ulaw` 和 `alaw`。
+- `metadata` 中只能出现本节定义或模型目录声明的字段，不得包含供应商鉴权、端点或供应商专属请求对象。
+- 适配器不支持请求中的某项能力时必须返回明确错误，不得静默忽略参考音频、情感控制或音乐参数。
+- 显式的 `false`、`0` 和空数组必须与字段缺失区分，转换时不得因 `omitempty` 丢失。
+- 独立音频生成的参考音频使用 `metadata.audio_url`；视频全能参考仍使用 `metadata.reference_audios`，两者不得互换。
+
+### 10.2 基础语音合成
+
+```json
+{
+  "model": "example-tts-model",
+  "input": "欢迎使用 DramaClaw。",
+  "voice": "example-voice",
+  "response_format": "mp3",
+  "speed": 1.0
+}
+```
+
+基础语音合成不需要 `metadata`。供应商使用不同音色标识、格式名称或语速范围时，由适配器完成映射和约束校验。
+
+### 10.3 参考音频与情感控制
+
+```json
+{
+  "model": "index-tts-2",
+  "input": "你终于来了。",
+  "response_format": "mp3",
+  "metadata": {
+    "audio_url": "data:audio/wav;base64,UklGRg...",
+    "should_use_prompt_for_emotion": true,
+    "emotion_prompt": "压低声音，克制但急切"
+  }
+}
+```
+
+| `metadata` 字段 | 类型 | 必需 | 说明 |
+|---|---|---:|---|
+| `audio_url` | string | 按模型能力 | 网关可访问的 HTTP(S) URL 或音频 Data URL |
+| `should_use_prompt_for_emotion` | boolean | 否 | 是否使用文本情感描述控制生成 |
+| `emotion_prompt` | string | 否 | 情感、语气或表演方式描述 |
+
+约束：
+
+- 需要参考音频的模型必须发送 `metadata.audio_url`。
+- `audio_url` 不得是客户端本地文件路径；Data URL 必须包含正确的音频 MIME 类型和 Base64 数据。
+- `emotion_prompt` 非空而 `should_use_prompt_for_emotion` 省略时，网关可以按模型契约启用文本情感控制；客户端应该显式发送该布尔值。
+- `should_use_prompt_for_emotion = false` 时，适配器不得因为存在 `emotion_prompt` 而擅自改成 `true`。
+- 参考音频的格式、大小和时长上限必须同时满足模型目录和供应商约束。
+
+### 10.4 音乐生成
+
+```json
+{
+  "model": "example-music-model",
+  "input": "神秘、克制的雨林电影配乐，无人声",
+  "response_format": "mp3",
+  "metadata": {
+    "music_length_ms": 30000,
+    "force_instrumental": true,
+    "respect_sections_durations": true,
+    "output_format": "mp3_44100_128"
+  }
+}
+```
+
+| `metadata` 字段 | 类型 | 必需 | 说明 |
+|---|---|---:|---|
+| `music_length_ms` | integer | 是 | 目标音乐时长，单位毫秒；当前范围为 `3000` 至 `600000` |
+| `force_instrumental` | boolean | 否 | 是否强制生成纯音乐 |
+| `respect_sections_durations` | boolean | 否 | 是否遵循提示词或编排中的分段时长 |
+| `output_format` | string | 否 | 带编码参数的输出配置，例如 `mp3_44100_128` |
+
+`response_format` 表示客户端期望接收的通用封装格式，`metadata.output_format` 表示模型支持的具体编码配置。适配器可以根据 `response_format` 选择供应商编码配置，但不得覆盖客户端显式发送的 `metadata.output_format`。
+
+### 10.5 音频响应
+
+网关应该优先返回音频二进制：
+
+```http
+HTTP/1.1 200 OK
+Content-Type: audio/mpeg
+```
+
+响应体为完整音频文件。`Content-Type` 必须与实际音频格式一致。
+
+当网关无法或不需要下载供应商结果时，也可以返回 JSON URL：
+
+```json
+{
+  "audio": {
+    "url": "https://example.invalid/result.mp3"
+  }
+}
+```
+
+或者返回 JSON Base64 结果：
+
+```json
+{
+  "data": [
+    {
+      "b64_json": "SUQzBAAAAA..."
+    }
+  ]
+}
+```
+
+DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种响应。URL 可以是临时地址；是否持久归档不属于本协议。兼容客户端可以继续读取顶层 `url`、`audio_url` 或 `audioUrl`，但新网关响应应该使用 `audio.url`。
+
+### 10.6 音频适配器责任
+
+音频供应商适配器必须：
+
+1. 根据映射后的网关模型选择供应商端点和请求结构。
+2. 将 OpenAI 基础字段和 DC-Media `metadata` 显式转换为供应商字段。
+3. 在请求上游前校验必需字段、时长、格式和参考音频限制。
+4. 保留显式的 `false`、`0` 和用户选择的输出格式。
+5. 将供应商 URL、Data URL 或 Base64 响应转换为第 10.5 节定义的响应之一。
+6. 返回稳定错误，不得用基础 TTS 降级处理参考音频或音乐请求。
+
+适配器不得把整个 `metadata` 对象直接反序列化到供应商请求并依赖同名字段碰巧生效。新增音频模型时必须建立明确的模型分流和字段映射。
+
+## 11. 响应与任务状态
+
+### 11.1 图片响应
 
 图片接口沿用 OpenAI 兼容的 `data` 数组，并允许一次返回多个结果：
 
@@ -545,7 +720,7 @@ adaptive → auto
 `url`。供应商只返回 URL 或只返回二进制时，由网关转换为客户端请求的格式；无法
 转换时返回明确错误。
 
-### 10.2 视频任务提交响应
+### 11.2 视频任务提交响应
 
 ```json
 {
@@ -561,7 +736,7 @@ adaptive → auto
 - 不得向客户端暴露仅供网关查询上游的供应商任务 ID。
 - 创建成功但尚未获得上游进度时统一返回 `queued`。
 
-### 10.3 视频任务查询响应
+### 11.3 视频任务查询响应
 
 ```json
 {
@@ -583,7 +758,7 @@ adaptive → auto
 `results` 必须是数组。供应商只返回一个结果时也不得改成单个对象。返回尾帧时可以
 增加 `type = "image"` 的结果项。
 
-### 10.4 任务状态
+### 11.4 任务状态
 
 网关对外只返回以下状态：
 
@@ -599,7 +774,7 @@ adaptive → auto
 供应商的 `processing`、`submitted`、`SUCCESS` 等状态必须在适配器内映射，不能直接
 透传为新的公共状态。
 
-### 10.5 错误响应
+### 11.5 错误响应
 
 ```json
 {
@@ -618,12 +793,12 @@ adaptive → auto
 - `upstream_request_id` 在供应商提供时应该返回。
 - 响应不得包含渠道密钥、鉴权头或完整的上游请求体。
 
-### 10.6 取消任务
+### 11.6 取消任务
 
 取消成功后返回最新任务对象，状态为 `cancelled`。供应商不支持取消时返回
 `task_cancellation_unsupported`，不得仅在本地伪造取消成功。
 
-## 11. 模型目录契约
+## 12. 模型目录契约
 
 每个媒体模型至少包含稳定身份、网关模型名和能力配置：
 
@@ -662,7 +837,7 @@ adaptive → auto
 - 已禁用模型不得出现在新建任务的可选列表中，后端也必须拒绝直接调用。
 - 前端只负责提前提示；后端必须重新校验模式、档位和素材限制。
 
-### 11.1 素材限制
+### 12.1 素材限制
 
 模型目录可以声明：
 
@@ -680,7 +855,7 @@ adaptive → auto
 
 单条限制和合计限制应分别校验。留空表示 DramaClaw 不增加目录限制，不代表供应商没有限制；网关仍应执行供应商最终约束。
 
-### 11.2 声明式专用参数
+### 12.2 声明式专用参数
 
 模型可以声明额外参数，但必须映射到安全的公共请求路径：
 
@@ -711,7 +886,45 @@ adaptive → auto
 - 模式限定使用规范模式名称。
 - 可选且未选择的参数应省略。
 
-## 12. 报价与执行一致性
+### 12.3 音频模型目录
+
+音频模型使用 `media_type = "audio"`，请求端点必须声明为 `audio/speech`。模型专用参数仍通过声明式参数映射到第 10 节定义的安全路径：
+
+```json
+{
+  "catalog_id": "stable-audio-catalog-id",
+  "media_type": "audio",
+  "label": "Example Music Model",
+  "gateway_model": "example-music-model",
+  "enabled": true,
+  "request": {
+    "endpoint": "audio/speech",
+    "parameters": [
+      {
+        "key": "music_length_ms",
+        "label": "音乐时长",
+        "control": "number",
+        "requestPath": "metadata.music_length_ms",
+        "min": 3000,
+        "max": 600000,
+        "required": true
+      },
+      {
+        "key": "force_instrumental",
+        "label": "纯音乐",
+        "control": "switch",
+        "requestPath": "metadata.force_instrumental",
+        "default": true,
+        "required": false
+      }
+    ]
+  }
+}
+```
+
+语音合成模型应该声明支持的 `voice`、`response_format`、`speed` 范围及参考音频约束；音乐模型应该声明时长范围和输出编码选项。模型目录只声明公共能力，不得包含 FAL、火山或其他供应商的鉴权和私有请求结构。
+
+## 13. 报价与执行一致性
 
 本文不定义价格，但定义计费输入的一致性：
 
@@ -722,10 +935,12 @@ adaptive → auto
 - `duration = "auto"` 的用户计费数量由业务规则从输入素材计算，不能把字符串 `auto` 直接作为数量。
 - 是否使用“有视频输入”价格必须根据本次真实存在的 `reference_videos` 判断，不能根据模型素材上限判断。
 - 批量数量必须来自本次实际请求的生成单位，不得因计费单位为 `call` 而误用字符数或时长。
+- 音频语音合成的计费输入必须来自实际发送的文本、音频时长或模型声明单位；音乐生成必须使用规范化后的 `metadata.music_length_ms`。
+- 音频报价和执行必须使用同一个 `gateway_model`、`response_format` 和显式音频扩展参数。
 
 用户积分账和供应商成本账可以采用不同结算口径，但差异必须是明确的产品决策，不能由参数转换意外产生。
 
-## 13. 校验与错误
+## 14. 校验与错误
 
 能够在本地确定的错误必须在创建任务和调用供应商前拒绝：
 
@@ -739,11 +954,15 @@ adaptive → auto
 - 单条或合计素材时长超限；
 - 缺少模式所需的首帧、关键帧或源视频；
 - 图片参考被错误放入首帧字段；
-- `catalog_id` 与执行模型不一致。
+- `catalog_id` 与执行模型不一致；
+- 音频 `model` 或 `input` 为空；
+- 需要参考音频的模型缺少 `metadata.audio_url`；
+- 音乐时长、输出格式或参考音频约束不符合模型目录；
+- 音频请求携带适配器不支持但会改变生成语义的扩展字段。
 
 错误响应应该包含稳定错误码和可读信息，不应依赖解析供应商英文错误文本来识别业务错误。
 
-## 14. 兼容与弃用
+## 15. 兼容与弃用
 
 以下字段或值属于兼容输入，不得由新代码继续产生：
 
@@ -767,9 +986,9 @@ adaptive → auto
 - 旧 backend 名称可以映射到 `newapi_*`，但不应继续维护新的供应商直连实现。
 - 删除兼容输入前必须先确认历史项目、队列消息和外部 API 调用不再依赖。
 
-## 15. 新模型接入检查清单
+## 16. 新模型接入检查清单
 
-新增图片或视频模型时，至少完成以下检查：
+新增图片、视频或音频模型时，至少完成以下检查：
 
 1. 在模型目录创建稳定 `catalog_id`。
 2. 配置正确的 `gateway_model` 和媒体类型。
@@ -783,11 +1002,13 @@ adaptive → auto
 10. 验证首帧、尾帧和参考素材进入正确字段。
 11. 验证素材数量和时长在前端提示、后端校验和网关约束三层一致。
 12. 验证报价、预扣和执行使用同一个模型及同一组规范化参数。
-13. 为每个支持模式增加至少一条请求契约测试。
+13. 为每个支持模式或音频请求形态增加至少一条请求契约测试。
 14. 为非法字段组合增加拒绝测试。
 15. 在 PR 中明确迁移、配置、供应商和计费影响；没有影响也应明确写明。
+16. 音频模型验证基础字段、`metadata` 扩展和供应商请求之间存在明确映射。
+17. 音频模型验证二进制、URL 或 Base64 响应至少一种，并保证 DramaClaw 可以保存结果。
 
-## 16. 契约测试最低要求
+## 17. 契约测试最低要求
 
 公共契约测试应至少覆盖：
 
@@ -805,9 +1026,14 @@ adaptive → auto
 - 模型目录不支持模式时的拒绝；
 - 素材数量与时长边界；
 - 旧字段进入后最终只产生规范字段；
-- 报价参数与执行请求参数一致。
+- 报价参数与执行请求参数一致；
 - 视频提交与查询只返回规范任务状态；
 - 单结果和多结果都使用 `results` 数组；
-- 错误响应包含稳定 `code`、`retryable` 和可选的上游 request ID。
+- 错误响应包含稳定 `code`、`retryable` 和可选的上游 request ID；
+- 音频基础 TTS 的 OpenAI 字段转换；
+- 参考音频、情感提示及显式 `false` 的转换；
+- 音乐生成时长边界、输出格式和布尔参数；
+- 音频二进制、规范 URL 和 Base64 响应解析；
+- 音频适配器不支持扩展能力时明确拒绝，而不是静默降级。
 
 任何公共协议字段的新增、删除或语义变更，都必须先更新本文档和契约测试，再修改供应商适配器。

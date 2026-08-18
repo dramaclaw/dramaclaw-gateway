@@ -24,7 +24,10 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {}
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	switch info.RelayMode {
 	case relayconstant.RelayModeAudioSpeech:
-		modelID := normalizeModelID(info.UpstreamModelName)
+		modelID, _, ok := resolveFalAudioModel(info.UpstreamModelName)
+		if !ok {
+			return "", fmt.Errorf("unsupported fal audio model: %s", info.UpstreamModelName)
+		}
 		return fmt.Sprintf("%s/%s", strings.TrimRight(info.ChannelBaseUrl, "/"), modelID), nil
 	case relayconstant.RelayModeImagesGenerations, relayconstant.RelayModeImagesEdits:
 		modelID := normalizeFalImageModelID(info.UpstreamModelName)
@@ -49,7 +52,12 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 	if request.IsStream(c.Request) {
 		return nil, fmt.Errorf("fal audio speech does not support stream_format=%q", request.StreamFormat)
 	}
-	falReq, err := buildFalAudioRequest(c, falAudioModelID(info, request), request)
+	modelID, kind, ok := resolveFalAudioModel(falAudioModelName(info, request))
+	if !ok {
+		return nil, fmt.Errorf("unsupported fal audio model: %s", falAudioModelName(info, request))
+	}
+	request.Model = modelID
+	falReq, err := buildFalAudioRequest(c, modelID, kind, request)
 	if err != nil {
 		return nil, err
 	}
@@ -126,31 +134,27 @@ func (a *Adaptor) GetCapabilities() []string {
 	return []string{"image", "audio"}
 }
 
-func normalizeModelID(model string) string {
-	model = strings.TrimSpace(model)
-	if model == "" || model == ModelIndexTTS2 {
-		return ModelIndexTTS2FalID
-	}
-	if model == ModelElevenLabsTTSElevenV3 {
-		return ModelElevenLabsTTSElevenV3ID
-	}
-	if model == ModelElevenLabsMusic {
-		return ModelElevenLabsMusicID
-	}
-	return strings.TrimPrefix(model, "/")
-}
-
-func falAudioModelID(info *relaycommon.RelayInfo, request dto.AudioRequest) string {
+func falAudioModelName(info *relaycommon.RelayInfo, request dto.AudioRequest) string {
 	if info != nil {
 		if info.ChannelMeta != nil && strings.TrimSpace(info.UpstreamModelName) != "" {
-			return normalizeModelID(info.UpstreamModelName)
+			return strings.TrimSpace(info.UpstreamModelName)
 		}
 		if strings.TrimSpace(info.OriginModelName) != "" {
-			return normalizeModelID(info.OriginModelName)
+			return strings.TrimSpace(info.OriginModelName)
 		}
 	}
-	if strings.TrimSpace(request.Model) != "" {
-		return normalizeModelID(request.Model)
+	return strings.TrimSpace(request.Model)
+}
+
+func resolveFalAudioModel(model string) (string, relaycommon.DCMediaAudioKind, bool) {
+	switch strings.TrimPrefix(strings.TrimSpace(model), "/") {
+	case ModelIndexTTS2, ModelIndexTTS2FalID:
+		return ModelIndexTTS2FalID, relaycommon.DCMediaAudioKindReferenceSpeech, true
+	case ModelElevenLabsTTSElevenV3, ModelElevenLabsTTSElevenV3ID:
+		return ModelElevenLabsTTSElevenV3ID, relaycommon.DCMediaAudioKindSpeech, true
+	case ModelElevenLabsMusic, ModelElevenLabsMusicID:
+		return ModelElevenLabsMusicID, relaycommon.DCMediaAudioKindMusic, true
+	default:
+		return "", "", false
 	}
-	return ModelIndexTTS2FalID
 }

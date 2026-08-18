@@ -82,7 +82,14 @@ type falAudioObject struct {
 	URL string `json:"url"`
 }
 
-func buildFalAudioRequest(c *gin.Context, modelID string, request dto.AudioRequest) (any, error) {
+func buildFalAudioRequest(c *gin.Context, modelID string, expectedKind relaycommon.DCMediaAudioKind, request dto.AudioRequest) (any, error) {
+	profile, err := relaycommon.NormalizeDCMediaAudioRequest(&request)
+	if err != nil {
+		return nil, err
+	}
+	if profile.Kind != expectedKind {
+		return nil, fmt.Errorf("fal audio model %s requires %s request metadata, got %s", modelID, expectedKind, profile.Kind)
+	}
 	if request.ResponseFormat != "" {
 		c.Set(contextKeyResponseFormat, request.ResponseFormat)
 	}
@@ -99,8 +106,10 @@ func buildFalAudioRequest(c *gin.Context, modelID string, request dto.AudioReque
 			c.Set(contextKeyResponseFormat, audioFormatFromFalOutputFormat(falReq.OutputFormat))
 		}
 		return falReq, nil
-	default:
+	case ModelIndexTTS2FalID:
 		return buildFalTTSRequest(request)
+	default:
+		return nil, fmt.Errorf("unsupported fal audio model: %s", modelID)
 	}
 }
 
@@ -362,7 +371,7 @@ func falTTSUsage(c *gin.Context, info *relaycommon.RelayInfo, audioBytes []byte,
 			audioReq = *req
 		}
 	}
-	modelID := falAudioModelID(info, audioReq)
+	modelID, _, _ := resolveFalAudioModel(falAudioModelName(info, audioReq))
 	if modelID == ModelElevenLabsTTSElevenV3ID {
 		inputChars := info.GetEstimatePromptTokens()
 		if audioReq.Input != "" {

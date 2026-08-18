@@ -10,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -65,8 +66,8 @@ func GetAndValidAudioRequest(c *gin.Context, relayMode int) (*dto.AudioRequest, 
 	}
 	switch relayMode {
 	case relayconstant.RelayModeAudioSpeech:
-		if audioRequest.Model == "" {
-			return nil, errors.New("model is required")
+		if _, err = relaycommon.NormalizeDCMediaAudioRequest(audioRequest); err != nil {
+			return nil, err
 		}
 	default:
 		if audioRequest.Model == "" {
