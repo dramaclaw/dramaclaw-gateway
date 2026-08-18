@@ -506,7 +506,10 @@ func (a *TaskAdaptor) workflowForRequest(req relaycommon.TaskSubmitReq, metadata
 		raw = a.settings.Workflow
 	}
 	if raw == nil {
-		return nil, routeMapping, fmt.Errorf("comfyui workflow is required in channel settings")
+		return nil, routeMapping, comfyUIConfigurationError(
+			"comfyui workflow is required in channel settings",
+			nil,
+		)
 	}
 	var workflow map[string]any
 	data, err := common.Marshal(raw)
@@ -546,14 +549,23 @@ func selectWorkflowRoute(routes []dto.ComfyUIWorkflowRoute, req relaycommon.Task
 		}
 	}
 	if len(matches) == 0 {
-		return dto.ComfyUIWorkflowRoute{}, fmt.Errorf("no comfyui workflow route matches model %q mode %q", request.model, request.mode)
+		return dto.ComfyUIWorkflowRoute{}, comfyUIRequestError(
+			fmt.Sprintf("no comfyui workflow route matches model %q mode %q", request.model, request.mode),
+			map[string]any{"model": request.model, "mode": request.mode},
+		)
 	}
 	sort.SliceStable(matches, func(i, j int) bool { return matches[i].Priority > matches[j].Priority })
 	if len(matches) > 1 && matches[0].Priority == matches[1].Priority {
-		return dto.ComfyUIWorkflowRoute{}, fmt.Errorf("multiple comfyui workflow routes match at priority %d: %q and %q", matches[0].Priority, matches[0].ID, matches[1].ID)
+		return dto.ComfyUIWorkflowRoute{}, comfyUIConfigurationError(
+			fmt.Sprintf("multiple comfyui workflow routes match at priority %d: %q and %q", matches[0].Priority, matches[0].ID, matches[1].ID),
+			map[string]any{"priority": matches[0].Priority, "route_ids": []string{matches[0].ID, matches[1].ID}},
+		)
 	}
 	if matches[0].Workflow == nil {
-		return dto.ComfyUIWorkflowRoute{}, fmt.Errorf("comfyui workflow route %q has no workflow", matches[0].ID)
+		return dto.ComfyUIWorkflowRoute{}, comfyUIConfigurationError(
+			fmt.Sprintf("comfyui workflow route %q has no workflow", matches[0].ID),
+			map[string]any{"route_id": matches[0].ID},
+		)
 	}
 	return matches[0], nil
 }
@@ -909,7 +921,10 @@ func findWorkflowInput(workflow map[string]any, nodeIDs []string, accept func(ma
 
 func (a *TaskAdaptor) applyRequestToWorkflow(c *gin.Context, workflow map[string]any, req relaycommon.TaskSubmitReq, metadata comfyMetadata, mapping dto.ComfyUINodeMappings, info *relaycommon.RelayInfo) error {
 	if strings.TrimSpace(req.Prompt) != "" && mapping.PromptNodeID == "" {
-		return fmt.Errorf("comfyui workflow prompt input could not be inferred; configure prompt_node_id explicitly")
+		return comfyUIConfigurationError(
+			"comfyui workflow prompt input could not be inferred; configure prompt_node_id explicitly",
+			nil,
+		)
 	}
 	if err := setWorkflowInput(workflow, mapping.PromptNodeID, firstNonEmpty(mapping.PromptInput, "text"), req.Prompt); err != nil {
 		return err

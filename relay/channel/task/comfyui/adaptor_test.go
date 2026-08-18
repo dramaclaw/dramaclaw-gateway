@@ -151,6 +151,17 @@ func TestComfyUIWorkflowUsesConfiguredModelWorkflow(t *testing.T) {
 	assert.Equal(t, "ModelNode", workflow["1"].(map[string]any)["class_type"])
 }
 
+func TestComfyUIWorkflowRequiresChannelConfiguration(t *testing.T) {
+	_, _, err := (&TaskAdaptor{}).workflowForRequest(
+		relaycommon.TaskSubmitReq{Model: "comfyui-video"},
+		comfyMetadata{},
+		"comfyui-video",
+	)
+
+	require.ErrorContains(t, err, "workflow is required in channel settings")
+	assertTaskBuildError(t, err, "comfyui_configuration_error", http.StatusInternalServerError)
+}
+
 func TestComfyUIWorkflowRoutesByRequestMode(t *testing.T) {
 	zero, one, three := 0, 1, 3
 	adaptor := &TaskAdaptor{settings: dto.ComfyUISettings{WorkflowRoutes: []dto.ComfyUIWorkflowRoute{
@@ -231,6 +242,7 @@ func TestComfyUIWorkflowRoutesInferMiniMaxH3ModeAndLimits(t *testing.T) {
 		Duration: 5, Images: []string{"https://example.com/a.png", "https://example.com/b.png"},
 	}, comfyMetadata{}, "minimax-h3")
 	require.ErrorContains(t, err, "no comfyui workflow route matches")
+	assertTaskBuildError(t, err, "invalid_request", http.StatusBadRequest)
 
 	_, _, err = adaptor.workflowForRequest(relaycommon.TaskSubmitReq{Duration: 16}, comfyMetadata{}, "minimax-h3")
 	require.ErrorContains(t, err, "no comfyui workflow route matches")
@@ -254,11 +266,26 @@ func TestComfyUIWorkflowRoutesRejectAmbiguousAndConflictingRequests(t *testing.T
 
 	_, _, err := adaptor.workflowForRequest(relaycommon.TaskSubmitReq{}, comfyMetadata{}, "minimax-h3")
 	require.ErrorContains(t, err, "multiple comfyui workflow routes match")
+	assertTaskBuildError(t, err, "comfyui_configuration_error", http.StatusInternalServerError)
 
 	_, _, err = adaptor.workflowForRequest(relaycommon.TaskSubmitReq{Image: "https://example.com/first.png"}, comfyMetadata{
 		LastFrameImage: "https://example.com/last.png", ReferenceVideos: []string{"https://example.com/reference.mp4"},
 	}, "minimax-h3")
 	require.ErrorContains(t, err, "cannot be mixed")
+}
+
+func TestComfyUIWorkflowRouteRequiresWorkflow(t *testing.T) {
+	routes := []dto.ComfyUIWorkflowRoute{{
+		ID: "missing-workflow",
+		Match: dto.ComfyUIWorkflowMatch{
+			Modes: []string{"text_to_video"},
+		},
+	}}
+
+	_, err := selectWorkflowRoute(routes, relaycommon.TaskSubmitReq{}, comfyMetadata{}, "minimax-h3")
+
+	require.ErrorContains(t, err, "has no workflow")
+	assertTaskBuildError(t, err, "comfyui_configuration_error", http.StatusInternalServerError)
 }
 
 func TestMergeTaskContentMediaMakesInputsAvailableForWorkflowInjection(t *testing.T) {
@@ -984,6 +1011,20 @@ func TestComfyUIWorkflowRejectsUnmappedPrompt(t *testing.T) {
 		&relaycommon.RelayInfo{},
 	)
 	require.ErrorContains(t, err, "prompt input could not be inferred")
+	assertTaskBuildError(t, err, "comfyui_configuration_error", http.StatusInternalServerError)
+}
+
+func assertTaskBuildError(t *testing.T, err error, code string, statusCode int) {
+	t.Helper()
+	metadata, ok := err.(interface {
+		TaskErrorCode() string
+		TaskErrorStatusCode() int
+		TaskErrorLocal() bool
+	})
+	require.True(t, ok)
+	assert.Equal(t, code, metadata.TaskErrorCode())
+	assert.Equal(t, statusCode, metadata.TaskErrorStatusCode())
+	assert.True(t, metadata.TaskErrorLocal())
 }
 
 func TestParseComfyUIHistoryVideoOutput(t *testing.T) {

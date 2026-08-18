@@ -193,6 +193,8 @@ func parseStatusCodeMappingValue(value any) (int, bool) {
 
 func TaskErrorWrapperLocal(err error, code string, statusCode int) *taskdto.TaskError {
 	openaiErr := TaskErrorWrapper(err, code, statusCode)
+	// The Local variant is an explicit caller override: never retry or penalize
+	// a channel even if wrapped metadata does not mark the error as local.
 	openaiErr.LocalError = true
 	return openaiErr
 }
@@ -229,7 +231,9 @@ func TaskErrorWrapper(err error, code string, statusCode int) *taskdto.TaskError
 			taskError.StatusCode = metadataStatusCode
 		}
 		taskError.LocalError = metadata.TaskErrorLocal()
-		taskError.Data = metadata.TaskErrorData()
+		if metadataData := metadata.TaskErrorData(); metadataData != nil {
+			taskError.Data = metadataData
+		}
 	}
 
 	return taskError

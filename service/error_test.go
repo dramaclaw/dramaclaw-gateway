@@ -38,6 +38,21 @@ func TestTaskErrorWrapperPreservesAdapterErrorMetadata(t *testing.T) {
 	require.True(t, errors.Is(taskErr.Error, errors.Unwrap(err)))
 }
 
+type testTaskErrorWithoutData struct{}
+
+func (e *testTaskErrorWithoutData) Error() string            { return "invalid request" }
+func (e *testTaskErrorWithoutData) TaskErrorCode() string    { return "invalid_request" }
+func (e *testTaskErrorWithoutData) TaskErrorStatusCode() int { return http.StatusBadRequest }
+func (e *testTaskErrorWithoutData) TaskErrorLocal() bool     { return true }
+func (e *testTaskErrorWithoutData) TaskErrorData() any       { return nil }
+
+func TestTaskErrorWrapperAllowsMetadataWithoutData(t *testing.T) {
+	taskErr := TaskErrorWrapper(&testTaskErrorWithoutData{}, "fallback", http.StatusInternalServerError)
+
+	require.Equal(t, "invalid_request", taskErr.Code)
+	require.Nil(t, taskErr.Data)
+}
+
 func TestResetStatusCode(t *testing.T) {
 	t.Parallel()
 
