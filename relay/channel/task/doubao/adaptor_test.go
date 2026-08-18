@@ -80,7 +80,7 @@ func TestConvertToRequestPayloadPreservesSameURLAcrossFrameRoles(t *testing.T) {
 	assert.Equal(t, "text", payload.Content[2].Type)
 }
 
-func TestConvertToRequestPayloadPreservesCompatibilityImages(t *testing.T) {
+func TestConvertToRequestPayloadIgnoresNonCanonicalImages(t *testing.T) {
 	req := relaycommon.TaskSubmitReq{
 		Model:  "seedance-test",
 		Prompt: "prompt",
@@ -93,10 +93,32 @@ func TestConvertToRequestPayloadPreservesCompatibilityImages(t *testing.T) {
 
 	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req)
 	require.NoError(t, err)
-	require.Len(t, payload.Content, 3)
+	require.Len(t, payload.Content, 2)
 	assert.Equal(t, "first_frame", payload.Content[0].Role)
 	assert.Equal(t, "https://example.com/first.png", payload.Content[0].ImageURL.URL)
-	assert.Equal(t, "reference_image", payload.Content[1].Role)
-	assert.Equal(t, "https://example.com/reference.png", payload.Content[1].ImageURL.URL)
-	assert.Equal(t, "text", payload.Content[2].Type)
+	assert.Equal(t, "text", payload.Content[1].Type)
+}
+
+func TestConvertToRequestPayloadIgnoresSupplierShapedMetadataContent(t *testing.T) {
+	req := relaycommon.TaskSubmitReq{
+		Model:  "seedance-test",
+		Prompt: "prompt",
+		Image:  "https://example.com/first.png",
+		Metadata: map[string]any{
+			"content": []map[string]any{
+				{
+					"type":      "image_url",
+					"image_url": map[string]any{"url": "https://example.com/first.png"},
+					"role":      "first_frame",
+				},
+			},
+		},
+	}
+
+	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req)
+	require.NoError(t, err)
+	require.Len(t, payload.Content, 2)
+	assert.Equal(t, "first_frame", payload.Content[0].Role)
+	assert.Equal(t, "https://example.com/first.png", payload.Content[0].ImageURL.URL)
+	assert.Equal(t, "text", payload.Content[1].Type)
 }

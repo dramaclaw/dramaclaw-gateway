@@ -100,6 +100,13 @@ func ValidateDCMediaTaskRequest(req *TaskSubmitReq) (DCMediaCallShape, error) {
 	if err := NormalizeDCMediaTaskRequest(req); err != nil {
 		return "", err
 	}
+	if req.ImagesSet {
+		return "", dcMediaError(
+			"unsupported_media_field",
+			"images",
+			"images is not part of DC-Media; use image for the first frame or metadata.reference_images for references",
+		)
+	}
 	if req.Width < 0 || req.Height < 0 || (req.Width == 0) != (req.Height == 0) {
 		return "", dcMediaError("invalid_dimensions", "width,height", "width and height must be positive and provided together")
 	}
@@ -123,7 +130,7 @@ func ValidateDCMediaTaskRequest(req *TaskSubmitReq) (DCMediaCallShape, error) {
 	if hasLastFrame && (hasImages || hasVideos || hasAudios) {
 		return "", dcMediaError("conflicting_media_inputs", "metadata.last_frame_image", "last_frame_image cannot be combined with reference media")
 	}
-	if strings.EqualFold(metadata.Ratio, "auto") && (req.Width > 0 || req.Height > 0 || fixedDCMediaSize(req.Size)) {
+	if strings.EqualFold(metadata.Ratio, "auto") && (req.Width > 0 || req.Height > 0) {
 		return "", dcMediaError("conflicting_dimensions", "width,height,metadata.ratio", "fixed dimensions cannot be combined with auto ratio")
 	}
 	if req.Width > 0 && metadata.Ratio != "" && metadata.Ratio != "auto" && !dcMediaDimensionsMatchRatio(req.Width, req.Height, metadata.Ratio) {
@@ -248,7 +255,8 @@ func nonEmptyMediaStrings(values []string) []string {
 }
 
 func parseDCMediaDimensions(value string) (int, int, bool) {
-	parts := strings.Split(strings.ToLower(strings.TrimSpace(value)), "x")
+	normalized := strings.NewReplacer("X", "x", "*", "x", "×", "x").Replace(strings.TrimSpace(value))
+	parts := strings.Split(normalized, "x")
 	if len(parts) != 2 {
 		return 0, 0, false
 	}
@@ -258,11 +266,6 @@ func parseDCMediaDimensions(value string) (int, int, bool) {
 		return 0, 0, false
 	}
 	return width, height, true
-}
-
-func fixedDCMediaSize(value string) bool {
-	_, _, ok := parseDCMediaDimensions(value)
-	return ok
 }
 
 func dcMediaDimensionsMatchRatio(width, height int, ratio string) bool {

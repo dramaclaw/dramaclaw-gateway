@@ -204,6 +204,7 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 
 	if images := formData["images"]; len(images) > 0 {
 		req.Images = images
+		req.ImagesSet = true
 	}
 
 	for key, values := range formData {

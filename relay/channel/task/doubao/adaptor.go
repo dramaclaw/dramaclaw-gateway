@@ -277,7 +277,15 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 		Content: []ContentItem{},
 	}
 
-	metadata := req.Metadata
+	// DC-Media fields are authoritative. Do not parse or forward
+	// supplier-shaped metadata.content; rebuild content below from canonical
+	// media fields.
+	metadata := make(map[string]interface{}, len(req.Metadata))
+	for key, value := range req.Metadata {
+		if key != "content" {
+			metadata[key] = value
+		}
+	}
 	if err := taskcommon.UnmarshalMetadata(metadata, &r); err != nil {
 		return nil, errors.Wrap(err, "unmarshal metadata failed")
 	}
@@ -299,11 +307,6 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 	appendImage(req.Image, "first_frame")
 	appendImage(dcMetadata.LastFrameImage, "last_frame")
 	for _, rawURL := range dcMetadata.ReferenceImages {
-		appendImage(rawURL, "reference_image")
-	}
-	// `images` is accepted only as an input compatibility field. Preserve
-	// entries beyond the canonical top-level first frame as references.
-	for _, rawURL := range req.AdditionalReferenceImages() {
 		appendImage(rawURL, "reference_image")
 	}
 	for _, rawURL := range dcMetadata.ReferenceVideos {

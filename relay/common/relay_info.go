@@ -871,6 +871,7 @@ type TaskSubmitReq struct {
 	Mode           string                 `json:"mode,omitempty"`
 	Image          string                 `json:"image,omitempty"`
 	Images         []string               `json:"images,omitempty"`
+	ImagesSet      bool                   `json:"-"`
 	Content        []TaskContentItem      `json:"content,omitempty"`
 	Size           string                 `json:"size,omitempty"`
 	Duration       int                    `json:"duration,omitempty"`
@@ -924,10 +925,13 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 	t.Duration = 0
 	t.DurationAuto = false
 	t.DurationSet = false
+	t.Images = nil
+	t.ImagesSet = false
 	type Alias TaskSubmitReq
 	aux := &struct {
 		Metadata json.RawMessage `json:"metadata,omitempty"`
 		Duration json.RawMessage `json:"duration,omitempty"`
+		Images   json.RawMessage `json:"images,omitempty"`
 		*Alias
 	}{
 		Alias: (*Alias)(t),
@@ -955,6 +959,12 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 			} else {
 				return fmt.Errorf("duration must be a positive integer, integer string, or auto")
 			}
+		}
+	}
+	if len(aux.Images) > 0 {
+		t.ImagesSet = true
+		if err := common.Unmarshal(aux.Images, &t.Images); err != nil {
+			return fmt.Errorf("images must be an array of strings")
 		}
 	}
 

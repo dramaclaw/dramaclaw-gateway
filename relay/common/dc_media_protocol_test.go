@@ -104,6 +104,55 @@ func TestTaskSubmitReqParsesAutomaticDuration(t *testing.T) {
 	assert.Zero(t, req.Duration)
 }
 
+func TestTaskSubmitReqTracksExplicitImagesField(t *testing.T) {
+	var req TaskSubmitReq
+	require.NoError(t, req.UnmarshalJSON([]byte(`{"images":["https://example.com/ref.png"]}`)))
+	assert.True(t, req.ImagesSet)
+	assert.Equal(t, []string{"https://example.com/ref.png"}, req.Images)
+}
+
+func TestValidateDCMediaTaskRequestRejectsExplicitImagesField(t *testing.T) {
+	var req TaskSubmitReq
+	require.NoError(t, req.UnmarshalJSON([]byte(`{"images":["https://example.com/ref.png"]}`)))
+
+	_, err := ValidateDCMediaTaskRequest(&req)
+
+	require.Error(t, err)
+	assert.Equal(t, "unsupported_media_field", DCMediaValidationErrorCode(err))
+	assert.Contains(t, err.Error(), "metadata.reference_images")
+}
+
+func TestValidateDCMediaTaskRequestAcceptsInternallyMirroredFirstFrame(t *testing.T) {
+	req := TaskSubmitReq{Image: "first.png", Images: []string{"first.png"}}
+
+	shape, err := ValidateDCMediaTaskRequest(&req)
+
+	require.NoError(t, err)
+	assert.Equal(t, DCMediaFirstFrame, shape)
+}
+
+func TestNormalizeDCMediaTaskRequestParsesCompatibleDimensionSeparators(t *testing.T) {
+	for _, size := range []string{"832*480", "1024×1024", "1280X720"} {
+		t.Run(size, func(t *testing.T) {
+			req := TaskSubmitReq{Size: size}
+			require.NoError(t, NormalizeDCMediaTaskRequest(&req))
+			assert.Positive(t, req.Width)
+			assert.Positive(t, req.Height)
+		})
+	}
+}
+
+func TestValidateDCMediaTaskRequestRejectsAutoRatioWithCompatibleFixedSize(t *testing.T) {
+	for _, size := range []string{"832*480", "1024×1024"} {
+		t.Run(size, func(t *testing.T) {
+			req := TaskSubmitReq{Size: size, Metadata: map[string]interface{}{"ratio": "auto"}}
+			_, err := ValidateDCMediaTaskRequest(&req)
+			require.Error(t, err)
+			assert.Equal(t, "conflicting_dimensions", DCMediaValidationErrorCode(err))
+		})
+	}
+}
+
 func TestValidateBasicTaskRequestStoresCanonicalDCMediaRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	request := httptest.NewRequest(http.MethodPost, "/v1/video/generations", strings.NewReader(`{

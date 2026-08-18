@@ -132,6 +132,19 @@ func TestH3VideoRequestRejectsUnsupportedVideoEdit(t *testing.T) {
 	assert.Contains(t, err.Error(), "does not support video editing")
 }
 
+func TestH3VideoRequestRejectsExplicitTopLevelImages(t *testing.T) {
+	var req relaycommon.TaskSubmitReq
+	require.NoError(t, req.UnmarshalJSON([]byte(`{
+		"prompt":"Animate",
+		"images":["https://example.com/reference.png"]
+	}`)))
+
+	_, err := h3VideoRequestFromTask(req)
+
+	require.Error(t, err)
+	assert.Equal(t, "unsupported_media_field", relaycommon.DCMediaValidationErrorCode(err))
+}
+
 func TestH3AdaptorBuildsV2URL(t *testing.T) {
 	adaptor := &TaskAdaptor{baseURL: "https://api.minimax.io"}
 	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: h3ModelName}}
