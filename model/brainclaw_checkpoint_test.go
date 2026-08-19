@@ -11,24 +11,24 @@ import (
 
 // One capability covers every model call of an agent turn, so the ordinal has
 // to come from the request, not the capability.
-func TestOrdinalsAdvancePerEpisodeAndAreIdempotentPerRequest(t *testing.T) {
+func TestOrdinalsAdvancePerTrajectoryAndAreIdempotentPerRequest(t *testing.T) {
 	truncateTables(t)
-	const episode = "hmac-sha256:aaaaaaaaaaaaaaaa"
+	const trajectory = "hmac-sha256:aaaaaaaaaaaaaaaa"
 
-	first, err := AssignCheckpointOrdinal(episode, "sha256:req-1", 1, 100)
+	first, err := AssignCheckpointOrdinal(trajectory, "sha256:req-1", 1, 100)
 	require.NoError(t, err)
-	second, err := AssignCheckpointOrdinal(episode, "sha256:req-2", 1, 101)
+	second, err := AssignCheckpointOrdinal(trajectory, "sha256:req-2", 1, 101)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), first)
 	assert.Equal(t, int64(1), second)
 
 	// A retry is the same checkpoint. Without this, a retried request would
 	// enter the training set twice.
-	retry, err := AssignCheckpointOrdinal(episode, "sha256:req-1", 1, 102)
+	retry, err := AssignCheckpointOrdinal(trajectory, "sha256:req-1", 1, 102)
 	require.NoError(t, err)
 	assert.Equal(t, first, retry, "a retry must not consume a second ordinal")
 
-	// A different episode starts its own sequence.
+	// A different trajectory starts its own sequence.
 	other, err := AssignCheckpointOrdinal("hmac-sha256:bbbbbbbbbbbbbbbb", "sha256:req-1", 1, 103)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), other)
@@ -36,7 +36,7 @@ func TestOrdinalsAdvancePerEpisodeAndAreIdempotentPerRequest(t *testing.T) {
 
 func TestConcurrentAllocationNeverDuplicatesAnOrdinal(t *testing.T) {
 	truncateTables(t)
-	const episode = "hmac-sha256:cccccccccccccccc"
+	const trajectory = "hmac-sha256:cccccccccccccccc"
 	const requests = 24
 
 	var group sync.WaitGroup
@@ -47,7 +47,7 @@ func TestConcurrentAllocationNeverDuplicatesAnOrdinal(t *testing.T) {
 		go func(index int) {
 			defer group.Done()
 			results[index], errs[index] = AssignCheckpointOrdinal(
-				episode, fingerprintFor(index), 1, int64(200+index))
+				trajectory, fingerprintFor(index), 1, int64(200+index))
 		}(index)
 	}
 	group.Wait()
@@ -74,7 +74,7 @@ func TestConcurrentAllocationNeverDuplicatesAnOrdinal(t *testing.T) {
 
 func TestSameRequestUnderConcurrencyGetsOneOrdinal(t *testing.T) {
 	truncateTables(t)
-	const episode = "hmac-sha256:dddddddddddddddd"
+	const trajectory = "hmac-sha256:dddddddddddddddd"
 	var group sync.WaitGroup
 	results := make([]int64, 12)
 	errs := make([]error, 12)
@@ -82,7 +82,7 @@ func TestSameRequestUnderConcurrencyGetsOneOrdinal(t *testing.T) {
 		group.Add(1)
 		go func(index int) {
 			defer group.Done()
-			results[index], errs[index] = AssignCheckpointOrdinal(episode, "sha256:same", 1, 300)
+			results[index], errs[index] = AssignCheckpointOrdinal(trajectory, "sha256:same", 1, 300)
 		}(index)
 	}
 	group.Wait()
@@ -105,28 +105,28 @@ func TestTheUniqueConstraintsExist(t *testing.T) {
 		"INSERT INTO brainclaw_checkpoints(trajectory_group_id,request_fingerprint,checkpoint_ordinal,grouping_key_epoch,created_time) VALUES(?,?,?,?,?)",
 		"hmac-sha256:eeeeeeeeeeeeeeee", "sha256:one", 0, 1, 1).Error)
 
-	// Same episode + same fingerprint: one checkpoint, not two.
+	// Same trajectory + same fingerprint: one checkpoint, not two.
 	assert.Error(t, DB.Exec(
 		"INSERT INTO brainclaw_checkpoints(trajectory_group_id,request_fingerprint,checkpoint_ordinal,grouping_key_epoch,created_time) VALUES(?,?,?,?,?)",
 		"hmac-sha256:eeeeeeeeeeeeeeee", "sha256:one", 7, 1, 2).Error,
-		"a duplicate (episode, fingerprint) must be rejected")
+		"a duplicate (trajectory, fingerprint) must be rejected")
 
-	// Same episode + same ordinal for a different request: two checkpoints
+	// Same trajectory + same ordinal for a different request: two checkpoints
 	// sharing a label would silently merge in the training table.
 	assert.Error(t, DB.Exec(
 		"INSERT INTO brainclaw_checkpoints(trajectory_group_id,request_fingerprint,checkpoint_ordinal,grouping_key_epoch,created_time) VALUES(?,?,?,?,?)",
 		"hmac-sha256:eeeeeeeeeeeeeeee", "sha256:two", 0, 1, 3).Error,
-		"a duplicate (episode, ordinal) must be rejected")
+		"a duplicate (trajectory, ordinal) must be rejected")
 }
 
 func TestMissingIdentityIsRefusedRatherThanGuessed(t *testing.T) {
 	truncateTables(t)
-	for _, testCase := range []struct{ episode, fingerprint string }{
+	for _, testCase := range []struct{ trajectory, fingerprint string }{
 		{"", "sha256:req"},
 		{"hmac-sha256:ffffffffffffffff", ""},
 		{"", ""},
 	} {
-		_, err := AssignCheckpointOrdinal(testCase.episode, testCase.fingerprint, 1, 400)
+		_, err := AssignCheckpointOrdinal(testCase.trajectory, testCase.fingerprint, 1, 400)
 		assert.ErrorIs(t, err, ErrCheckpointOrdinalUnavailable)
 	}
 }

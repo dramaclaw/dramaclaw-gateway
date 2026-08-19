@@ -58,7 +58,7 @@ func TestChainCanaryStage2(t *testing.T) {
 	// idempotent per (trajectory, fingerprint), monotonic per trajectory.
 	var ordinalMutex sync.Mutex
 	assigned := map[string]int64{}
-	nextPerEpisode := map[string]int64{}
+	nextPerTrajectory := map[string]int64{}
 	Configure(verifier, signer, func(trajectory, fingerprint string, _, _ int64) (int64, error) {
 		ordinalMutex.Lock()
 		defer ordinalMutex.Unlock()
@@ -66,8 +66,8 @@ func TestChainCanaryStage2(t *testing.T) {
 		if existing, seen := assigned[key]; seen {
 			return existing, nil
 		}
-		ordinal := nextPerEpisode[trajectory]
-		nextPerEpisode[trajectory] = ordinal + 1
+		ordinal := nextPerTrajectory[trajectory]
+		nextPerTrajectory[trajectory] = ordinal + 1
 		assigned[key] = ordinal
 		return ordinal, nil
 	})

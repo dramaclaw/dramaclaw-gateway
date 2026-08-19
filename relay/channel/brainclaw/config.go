@@ -115,7 +115,7 @@ func LoadControlContextSigner(path, keyID string) (*ControlContextSigner, error)
 // the attestation an operator explicitly configured is the failure mode this
 // whole contract exists to prevent.
 func ConfigureFromEnvironment(
-	allocator func(episodeGroupID, requestFingerprint string, epoch, now int64) (int64, error),
+	allocator func(trajectoryGroupID, requestFingerprint string, epoch, now int64) (int64, error),
 ) (configured bool, err error) {
 	capabilityPath := strings.TrimSpace(os.Getenv(CapabilityKeyringEnv))
 	contextPath := strings.TrimSpace(os.Getenv(ControlContextKeyEnv))

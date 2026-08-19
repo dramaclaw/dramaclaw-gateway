@@ -23,7 +23,7 @@ var (
 	runtimeMutex         sync.RWMutex
 	capabilityVerifier   *CapabilityVerifier
 	controlContextSigner *ControlContextSigner
-	ordinalAllocator     func(episodeGroupID, requestFingerprint string, epoch, now int64) (int64, error)
+	ordinalAllocator     func(trajectoryGroupID, requestFingerprint string, epoch, now int64) (int64, error)
 )
 
 // Configure installs the runtime. Both legs are optional and independent: a

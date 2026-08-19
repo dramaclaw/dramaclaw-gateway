@@ -83,7 +83,7 @@ func validateControlContextPayload(payload ControlContextPayload) error {
 	}
 	if !opaqueGroupID.MatchString(payload.TrajectoryGroupID) ||
 		!opaqueGroupID.MatchString(payload.ProjectGroupID) {
-		// A caller with no project concept repeats the episode id; BrainClaw
+		// A caller with no project concept repeats the trajectory id; BrainClaw
 		// never invents a grouping it cannot see, and neither does this.
 		return fmt.Errorf("group ids must be opaque")
 	}

@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// BrainClawCheckpoint assigns each distinct request within one episode a stable
+// BrainClawCheckpoint assigns each distinct request within one trajectory a stable
 // ordinal.
 //
 // The ordinal cannot live in the capability: one capability covers every model
@@ -28,9 +28,9 @@ import (
 // and fine: the ordinal is a label, not an ordering guarantee.
 type BrainClawCheckpoint struct {
 	Id                 int64  `json:"id" gorm:"primaryKey"`
-	TrajectoryGroupId  string `json:"trajectory_group_id" gorm:"type:varchar(64);not null;uniqueIndex:idx_bc_episode_fingerprint,priority:1;uniqueIndex:idx_bc_episode_ordinal,priority:1"`
-	RequestFingerprint string `json:"request_fingerprint" gorm:"type:varchar(80);not null;uniqueIndex:idx_bc_episode_fingerprint,priority:2"`
-	CheckpointOrdinal  int64  `json:"checkpoint_ordinal" gorm:"not null;uniqueIndex:idx_bc_episode_ordinal,priority:2"`
+	TrajectoryGroupId  string `json:"trajectory_group_id" gorm:"type:varchar(64);not null;uniqueIndex:idx_bc_trajectory_fingerprint,priority:1;uniqueIndex:idx_bc_trajectory_ordinal,priority:1"`
+	RequestFingerprint string `json:"request_fingerprint" gorm:"type:varchar(80);not null;uniqueIndex:idx_bc_trajectory_fingerprint,priority:2"`
+	CheckpointOrdinal  int64  `json:"checkpoint_ordinal" gorm:"not null;uniqueIndex:idx_bc_trajectory_ordinal,priority:2"`
 	GroupingKeyEpoch   int64  `json:"grouping_key_epoch" gorm:"not null"`
 	CreatedTime        int64  `json:"created_time" gorm:"bigint;not null"`
 }
@@ -43,8 +43,8 @@ func (BrainClawCheckpoint) TableName() string { return "brainclaw_checkpoints" }
 var ErrCheckpointOrdinalUnavailable = errors.New("brainclaw checkpoint ordinal unavailable")
 
 // maxOrdinalAllocationAttempts bounds the retry below. Contention is between
-// distinct requests of one episode, so the loser only has to step past whoever
-// won; a handful of attempts covers far more concurrency than one episode ever
+// distinct requests of one trajectory, so the loser only has to step past whoever
+// won; a handful of attempts covers far more concurrency than one trajectory ever
 // sees, and a bound means a pathological case degrades to diagnostic instead of
 // spinning.
 const maxOrdinalAllocationAttempts = 8
@@ -70,7 +70,7 @@ func isRetryableStorageError(err error) bool {
 	return false
 }
 
-// AssignCheckpointOrdinal returns the ordinal for one (episode, request) pair.
+// AssignCheckpointOrdinal returns the ordinal for one (trajectory, request) pair.
 //
 // Idempotent: the same fingerprint always yields the same ordinal, so a retried
 // request does not consume a second slot and does not appear as two checkpoints.
@@ -78,9 +78,9 @@ func isRetryableStorageError(err error) bool {
 // Two different unique constraints can reject an insert, and they mean opposite
 // things:
 //
-//   - (episode, fingerprint) — this exact request already has an ordinal, so
+//   - (trajectory, fingerprint) — this exact request already has an ordinal, so
 //     read it and return; that is the idempotent path.
-//   - (episode, ordinal) — a *different* request took the number we picked, so
+//   - (trajectory, ordinal) — a *different* request took the number we picked, so
 //     pick the next one and try again.
 //
 // An earlier version handled only the first and treated the second as a failure,
