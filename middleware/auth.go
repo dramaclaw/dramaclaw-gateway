@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/brainclaw"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/service/authz"
@@ -351,6 +352,15 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 
 func TokenAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
+		// Consume the BrainClaw capability at the very edge. It is verified
+		// once here and removed from the inbound request immediately, so no
+		// later code path — logging, tracing, header passthrough, a future
+		// adaptor — can copy an attacker-controlled string onward or re-parse
+		// it. The verified claims travel on the gin context instead.
+		//
+		// Absent or invalid is not an auth failure: the request proceeds and
+		// simply carries no formal grouping identity.
+		brainclaw.ConsumeInboundCapability(c)
 		// 先检测是否为ws
 		if c.Request.Header.Get("Sec-WebSocket-Protocol") != "" {
 			// Sec-WebSocket-Protocol: realtime, openai-insecure-api-key.sk-xxx, openai-beta.realtime-v1

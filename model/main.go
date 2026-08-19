@@ -259,6 +259,7 @@ func migrateDB() error {
 	}
 
 	err := DB.AutoMigrate(
+		&BrainClawCheckpoint{},
 		&Channel{},
 		&Token{},
 		&User{},

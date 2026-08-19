@@ -23,6 +23,11 @@ type ChannelSettings struct {
 	// HTTP2ConnectionShards spreads HTTP/2 traffic across N independent transports
 	// (1-8). Zero/unset means 1. Ignored when HTTPProtocol is "http1".
 	HTTP2ConnectionShards int `json:"http2_connection_shards,omitempty"`
+	// BrainClawControlContextEnabled mints a request-bound Control Context for
+	// this channel's outbound requests. Opt-in per channel and never inferred
+	// from channel type or hostname: a channel that merely looks like BrainClaw
+	// must not start receiving a signed grouping identity by accident.
+	BrainClawControlContextEnabled bool `json:"brainclaw_control_context_enabled,omitempty"`
 }
 
 const (

@@ -1,0 +1,21 @@
+{
+  "note": "Byte-for-byte copy. Never regenerate this file by re-serialising; copy it, so a formatting difference cannot masquerade as agreement.",
+  "source_repository": "brainclaw",
+  "protocol_versions": {
+    "control-capability": "dramaclaw.control-capability/v1",
+    "control-context": "dramaclaw.brainclaw-context/v1"
+  },
+  "files": {
+    "control-capability-vectors.json": {
+      "source_path": "profiles/control-capability/vectors.json",
+      "source_sha256": "92957af5e68e881906804a4a86dcb98b67fdb41169256f8df4a0b21bba202f87"
+    },
+    "control-context-vectors.json": {
+      "source_path": "profiles/control-context/vectors.json",
+      "source_sha256": "e0bcbbdf6da93be8a9b27f64f3b66d36b969c11d89021b1c0f029f0a05993d24",
+      "supersedes_sha256": "1a16ff299d425c3b09c678fc35857d141112c9851959270859f3d4f8130014b8",
+      "erratum": "control-context-v1-erratum-1"
+    }
+  },
+  "source_revision": "126e59f7271a25325a7b16a724128b21c55c74be"
+}

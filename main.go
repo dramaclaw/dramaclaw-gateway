@@ -25,6 +25,7 @@ import (
 	"github.com/QuantumNous/new-api/oauth"
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/QuantumNous/new-api/relay"
+	"github.com/QuantumNous/new-api/relay/channel/brainclaw"
 	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
 	"github.com/QuantumNous/new-api/router"
 	"github.com/QuantumNous/new-api/service"
@@ -315,6 +316,20 @@ func InitResources() error {
 	}
 
 	model.CheckSetup()
+
+	// BrainClaw evidence plane. Absent keys are normal and non-fatal — the
+	// gateway then serves exactly as before and produces no formal evidence.
+	// Keys that are present but unusable are fatal, because silently serving
+	// without the attestation an operator explicitly configured is precisely
+	// the failure this contract exists to prevent.
+	if configured, brainclawErr := brainclaw.ConfigureFromEnvironment(
+		model.AssignCheckpointOrdinal,
+	); brainclawErr != nil {
+		common.FatalLog("failed to configure the BrainClaw evidence plane: " + brainclawErr.Error())
+		return brainclawErr
+	} else if configured {
+		common.SysLog("BrainClaw evidence plane configured: capability verifier and control context signer active")
+	}
 
 	// Initialize options, should after model.InitDB()
 	if common.IsMasterNode {
