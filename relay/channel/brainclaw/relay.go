@@ -63,6 +63,10 @@ func ConsumeInboundCapability(c *gin.Context) CapabilityResult {
 
 	verifier, _, _ := runtime()
 	result := VerifyCapabilityHeader(verifier, values)
+	// Counted here because this is the one place every inbound capability is
+	// resolved. Counting at the call sites instead would miss whichever one is
+	// added next, and the failure that matters is the silent one.
+	ObserveCapability(result)
 	if result.Verified() {
 		c.Set(ContextKeyCapabilityClaims, result.Claims)
 	} else {
@@ -133,6 +137,11 @@ func SignOutboundRequest(c *gin.Context, request *http.Request, enabled bool,
 		return "", false
 	}
 	header, err := signer.Sign(PayloadFromCapability(claims, ordinal), method, endpointPath, body)
+	// A signing failure is invisible downstream by design — the request is
+	// still served, it just carries no attestation. Which is exactly why it has
+	// to be counted: evidence quietly stopping and traffic quietly stopping
+	// look identical without this.
+	ObserveSigning(err)
 	if err != nil {
 		return "", false
 	}
