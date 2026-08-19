@@ -3,6 +3,8 @@ package model
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -47,6 +49,27 @@ var ErrCheckpointOrdinalUnavailable = errors.New("brainclaw checkpoint ordinal u
 // spinning.
 const maxOrdinalAllocationAttempts = 8
 
+// isRetryableStorageError reports whether an allocation failure is contention
+// rather than a decision. Matched on message because the driver-specific error
+// types differ across the SQLite, MySQL and PostgreSQL backends this gateway
+// supports, and a missing match only costs one attestation, never correctness.
+func isRetryableStorageError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	for _, transient := range []string{
+		"database is locked", "database table is locked", "sqlite_busy",
+		"deadlock", "try restarting transaction", "could not serialize access",
+		"lock wait timeout", "connection reset",
+	} {
+		if strings.Contains(message, transient) {
+			return true
+		}
+	}
+	return false
+}
+
 // AssignCheckpointOrdinal returns the ordinal for one (episode, request) pair.
 //
 // Idempotent: the same fingerprint always yields the same ordinal, so a retried
@@ -71,12 +94,20 @@ func AssignCheckpointOrdinal(trajectoryGroupId, requestFingerprint string, group
 	for attempt := 0; attempt < maxOrdinalAllocationAttempts; attempt++ {
 		ordinal, done, err := tryAssignCheckpointOrdinal(
 			trajectoryGroupId, requestFingerprint, groupingKeyEpoch, now)
+		if done && err == nil {
+			return ordinal, nil
+		}
 		if err != nil {
 			lastErr = err
-			break
-		}
-		if done {
-			return ordinal, nil
+			if !isRetryableStorageError(err) {
+				break
+			}
+			// A busy database is contention, not a verdict. This table shares a
+			// file with billing and logging writes, so lock contention is
+			// expected under load; treating it as terminal silently drops the
+			// attestation for a request that was served perfectly well.
+			time.Sleep(time.Duration(attempt+1) * 2 * time.Millisecond)
+			continue
 		}
 		// Lost the ordinal race; re-read the maximum and step past the winner.
 	}

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"sync"
 	"testing"
 
@@ -132,4 +133,83 @@ func TestMissingIdentityIsRefusedRatherThanGuessed(t *testing.T) {
 
 func fingerprintFor(index int) string {
 	return "sha256:req-" + string(rune('a'+index%26)) + string(rune('a'+index/26))
+}
+
+// Contention on the storage layer is not a verdict about the request.
+//
+// This table shares a database file with billing and logging writes, so lock
+// contention is expected under load. An earlier version treated any error as
+// terminal, which silently dropped the attestation for requests that were
+// served perfectly well — a real canary run lost four of thirteen that way,
+// and every unit test still passed because they never contended with another
+// writer.
+func TestTransientStorageContentionIsRetriedNotSurrendered(t *testing.T) {
+	for _, message := range []string{
+		"database is locked",
+		"SQLITE_BUSY: database is locked",
+		"Error 1213: Deadlock found when trying to get lock; try restarting transaction",
+		"could not serialize access due to concurrent update",
+		"Lock wait timeout exceeded",
+	} {
+		assert.True(t, isRetryableStorageError(errors.New(message)),
+			"contention must be retried: %q", message)
+	}
+	for _, message := range []string{
+		"no such table: brainclaw_checkpoints",
+		"constraint failed",
+		"invalid trajectory group id",
+	} {
+		assert.False(t, isRetryableStorageError(errors.New(message)),
+			"a real fault must not be retried forever: %q", message)
+	}
+	assert.False(t, isRetryableStorageError(nil))
+}
+
+// The allocator must stay total while another writer holds the database.
+func TestAllocationSurvivesAConcurrentWriter(t *testing.T) {
+	truncateTables(t)
+	const trajectory = "hmac-sha256:aaaabbbbccccdddd"
+
+	stop := make(chan struct{})
+	var noise sync.WaitGroup
+	noise.Add(1)
+	go func() {
+		defer noise.Done()
+		for i := 0; ; i++ {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			// Unrelated traffic against the same file, as billing and logging do.
+			DB.Exec("INSERT INTO logs(user_id, created_at, type, content) VALUES(?,?,?,?)",
+				1, int64(i), 1, "canary noise")
+		}
+	}()
+
+	var group sync.WaitGroup
+	const requests = 16
+	errs := make([]error, requests)
+	ordinals := make([]int64, requests)
+	for index := 0; index < requests; index++ {
+		group.Add(1)
+		go func(index int) {
+			defer group.Done()
+			ordinals[index], errs[index] = AssignCheckpointOrdinal(
+				trajectory, fingerprintFor(index), 1, int64(index))
+		}(index)
+	}
+	group.Wait()
+	close(stop)
+	noise.Wait()
+
+	seen := map[int64]int{}
+	for index, err := range errs {
+		require.NoError(t, err, "request %d lost its ordinal to contention", index)
+		seen[ordinals[index]]++
+	}
+	assert.Len(t, seen, requests, "every request must hold its own ordinal")
+	for ordinal, count := range seen {
+		assert.Equal(t, 1, count, "ordinal %d was handed out twice", ordinal)
+	}
 }
