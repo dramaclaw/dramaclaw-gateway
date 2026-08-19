@@ -67,19 +67,19 @@ var (
 // refuses unknown fields, so a claim set that is not exactly this is rejected
 // rather than partially honoured.
 type CapabilityClaims struct {
-	SchemaVersion    string `json:"schema_version"`
-	Issuer           string `json:"issuer"`
-	Audience         string `json:"audience"`
-	KeyID            string `json:"key_id"`
-	TurnID           string `json:"turn_id"`
-	EpisodeGroupID   string `json:"episode_group_id"`
-	ProjectGroupID   string `json:"project_group_id"`
-	GroupingKeyEpoch int64  `json:"grouping_key_epoch"`
-	TurnKind         string `json:"turn_kind"`
-	ReplayScopeLimit string `json:"replay_scope_limit"`
-	IssuedAt         int64  `json:"issued_at"`
-	ExpiresAt        int64  `json:"expires_at"`
-	Nonce            string `json:"nonce"`
+	SchemaVersion     string `json:"schema_version"`
+	Issuer            string `json:"issuer"`
+	Audience          string `json:"audience"`
+	KeyID             string `json:"key_id"`
+	TurnID            string `json:"turn_id"`
+	TrajectoryGroupID string `json:"trajectory_group_id"`
+	ProjectGroupID    string `json:"project_group_id"`
+	GroupingKeyEpoch  int64  `json:"grouping_key_epoch"`
+	TurnKind          string `json:"turn_kind"`
+	ReplayScopeLimit  string `json:"replay_scope_limit"`
+	IssuedAt          int64  `json:"issued_at"`
+	ExpiresAt         int64  `json:"expires_at"`
+	Nonce             string `json:"nonce"`
 }
 
 type CapabilityResult struct {
@@ -217,7 +217,7 @@ func validateCapabilityClaims(claims CapabilityClaims, envelopeKeyID string) str
 	if !safeIdentifier.MatchString(claims.TurnID) || !safeIdentifier.MatchString(claims.Nonce) {
 		return CapabilityClaimsInvalid
 	}
-	if !opaqueGroupID.MatchString(claims.EpisodeGroupID) ||
+	if !opaqueGroupID.MatchString(claims.TrajectoryGroupID) ||
 		!opaqueGroupID.MatchString(claims.ProjectGroupID) {
 		// A raw identifier arriving through an opaque field would be signed and
 		// stored verbatim, silently defeating the pseudonymisation.

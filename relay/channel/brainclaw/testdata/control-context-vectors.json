@@ -20,6 +20,7 @@
   "erratum": {
     "audit": "11162 files / 12471 records scanned across production capture, canary capture, eval captures, eval results, eval batches and profiles. 12 group id occurrences, 1 non-conforming — this test vector. No formal record was affected, so no record was downgraded and no id was rewritten.",
     "date": "2026-08-18",
+    "field_rename": "episode_group_id renamed to trajectory_group_id on 2026-08-19, before any production release. 'Episode' is DramaClaw's drama-episode term; this field groups the checkpoints of one agent trajectory, so the two would have collided permanently. The HMAC namespace moved with it, so every derived id changes. No dual field, alias or migration: nothing had shipped.",
     "id": "control-context-v1-erratum-1",
     "not_a_protocol_change": "No version bump: group_id() always produced 16 lowercase hex characters. The 15-character vector was defective test data, not protocol behaviour anyone should keep supporting.",
     "previous_sha256": "1a16ff299d425c3b09c678fc35857d141112c9851959270859f3d4f8130014b8",
@@ -28,11 +29,11 @@
     "why_it_mattered": "BrainClaw's verifier only checked the 'hmac-sha256:' prefix and a non-empty suffix — loose enough to accept the defective vector, and therefore loose enough to accept a raw identifier behind the prefix. An external caller could not exploit this without a valid Gateway->BrainClaw signature; the exposure is the signing path itself, any future trusted issuer, and defence in depth."
   },
   "grouping_key_utf8": "frozen-vector-grouping-key-32byte",
-  "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.X0_IlI8gjjLJ9lgFv9mmFgFwIjxLpWPRrgYzKBpCkTs",
+  "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OmU0NDlhOThkODQ3MWE0NTEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.txpacAL9sZAbhH6rmpjl-rkuIHbKCla6ybPccB_g5fE",
   "negative_cases": [
     {
       "expect_reason": "signature_invalid",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.X0_IlI8gjjLJ9lgFv9mmFgFwIjxLpWPRrgYzKBpCkTs",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OmU0NDlhOThkODQ3MWE0NTEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.txpacAL9sZAbhH6rmpjl-rkuIHbKCla6ybPccB_g5fE",
       "name": "body_tampered",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]} ",
@@ -43,7 +44,7 @@
     },
     {
       "expect_reason": "signature_invalid",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.X0_IlI8gjjLJ9lgFv9mmFgFwIjxLpWPRrgYzKBpCkTs",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OmU0NDlhOThkODQ3MWE0NTEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.txpacAL9sZAbhH6rmpjl-rkuIHbKCla6ybPccB_g5fE",
       "name": "path_swapped",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
@@ -54,7 +55,7 @@
     },
     {
       "expect_reason": "signature_invalid",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjk5LCJlcGlzb2RlX2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6MTEyYzg3ZGU0OGY1MWM1NSIsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHVybl9raW5kIjoiZm9yZWdyb3VuZF91c2VyIn0.X0_IlI8gjjLJ9lgFv9mmFgFwIjxLpWPRrgYzKBpCkTs",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjk5LCJncm91cGluZ19rZXlfZXBvY2giOjEsInByb2plY3RfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjozYTgyYWUwYjQ4NGViMzcwIiwicmVwbGF5X3Njb3BlX2xpbWl0IjoibW9kZWxfb3V0cHV0X29ubHkiLCJzY2hlbWFfdmVyc2lvbiI6ImRyYW1hY2xhdy5icmFpbmNsYXctY29udGV4dC92MSIsInRyYWplY3RvcnlfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjplNDQ5YTk4ZDg0NzFhNDUxIiwidHVybl9raW5kIjoiZm9yZWdyb3VuZF91c2VyIn0.txpacAL9sZAbhH6rmpjl-rkuIHbKCla6ybPccB_g5fE",
       "name": "payload_tampered",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
@@ -65,7 +66,7 @@
     },
     {
       "expect_reason": "signature_invalid",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OmU0NDlhOThkODQ3MWE0NTEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
       "name": "signature_flipped",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
@@ -76,18 +77,18 @@
     },
     {
       "expect_reason": "signing_key_unknown",
-      "header_value": "v1.dc-unknown.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.X0_IlI8gjjLJ9lgFv9mmFgFwIjxLpWPRrgYzKBpCkTs",
+      "header_value": "v1.dc-unknown.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OmU0NDlhOThkODQ3MWE0NTEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.txpacAL9sZAbhH6rmpjl-rkuIHbKCla6ybPccB_g5fE",
       "name": "unknown_key_id",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
         "endpoint_path": "/v1/chat/completions",
         "method": "POST"
       },
-      "why": "key id absent from the verifier keyring"
+      "why": "key id absent from the keyring"
     },
     {
       "expect_reason": "context_malformed",
-      "header_value": "v9.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.X0_IlI8gjjLJ9lgFv9mmFgFwIjxLpWPRrgYzKBpCkTs",
+      "header_value": "v9.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OmU0NDlhOThkODQ3MWE0NTEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.txpacAL9sZAbhH6rmpjl-rkuIHbKCla6ybPccB_g5fE",
       "name": "unknown_version",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
@@ -98,18 +99,18 @@
     },
     {
       "expect_reason": "replay_scope_none",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im5vbmUiLCJzY2hlbWFfdmVyc2lvbiI6ImRyYW1hY2xhdy5icmFpbmNsYXctY29udGV4dC92MSIsInR1cm5fa2luZCI6ImZvcmVncm91bmRfdXNlciJ9.SFg5mtRMPdlAbNEcUc9-O0favKysN_akXYeEIjRLFK4",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJub25lIiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0cmFqZWN0b3J5X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6ZTQ0OWE5OGQ4NDcxYTQ1MSIsInR1cm5fa2luZCI6ImZvcmVncm91bmRfdXNlciJ9.WHaPAFNJ4BRhyzT2ZVuXuXhudczOzt5lLbuK9LYcQ5Y",
       "name": "replay_scope_none",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
         "endpoint_path": "/v1/chat/completions",
         "method": "POST"
       },
-      "why": "caller forbade replay, so the record is not training evidence"
+      "why": "caller forbade replay"
     },
     {
       "expect_reason": "turn_kind_not_foreground",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJpbnRlcm5hbF9tYWludGVuYW5jZSJ9.TWLnw4lkPCNK3oIUCkpiWDf5Wt4Gv1Pyg5IgcxETLdc",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OmU0NDlhOThkODQ3MWE0NTEiLCJ0dXJuX2tpbmQiOiJpbnRlcm5hbF9tYWludGVuYW5jZSJ9.sC34ennqdSYF0pI6i3RVW6Cfe9WUced7gemeqHenPfM",
       "name": "internal_maintenance_turn",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
@@ -120,7 +121,7 @@
     },
     {
       "expect_reason": "ordinal_conflict",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQyOTQ5NjcyOTYsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.5U1Ii1B3WJpNhVTR7ifeFvQXXyNyFmeKe3EAx5iMVLU",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQyOTQ5NjcyOTYsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OmU0NDlhOThkODQ3MWE0NTEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.BCr1EaJ8nlBkamhYPg3X0dAhisNk4QKcNARVd0GO88w",
       "name": "ordinal_out_of_range",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
@@ -131,51 +132,51 @@
     },
     {
       "expect_reason": "context_malformed",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiIiwicmVwbGF5X3Njb3BlX2xpbWl0IjoibW9kZWxfb3V0cHV0X29ubHkiLCJzY2hlbWFfdmVyc2lvbiI6ImRyYW1hY2xhdy5icmFpbmNsYXctY29udGV4dC92MSIsInR1cm5fa2luZCI6ImZvcmVncm91bmRfdXNlciJ9.ZIX1w7OiFMlxQWMl6nkDdh-pWMWRgNeQCmpbAKq1IxE",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6IiIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0cmFqZWN0b3J5X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6ZTQ0OWE5OGQ4NDcxYTQ1MSIsInR1cm5fa2luZCI6ImZvcmVncm91bmRfdXNlciJ9.5eeJrDfKt5Ug9yEa97BgnK_5x7F0GGWBfZXms5sArn8",
       "name": "project_group_missing",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
         "endpoint_path": "/v1/chat/completions",
         "method": "POST"
       },
-      "why": "a project-less caller must repeat the episode id explicitly"
+      "why": "a project-less caller must repeat the trajectory id"
     },
     {
       "expect_reason": "context_malformed",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6cHJvai1hbHBoYSIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.7k8s2W-kNTWYizpV6RExt8vKbzPkIilxVAWj4Qf2eTk",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OnByb2otYWxwaGEiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OmU0NDlhOThkODQ3MWE0NTEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.1inK5Q2RVYoyy4vRQfgYXxgtY7KGgl9HD4YADzCSFUU",
       "name": "raw_project_identifier",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
         "endpoint_path": "/v1/chat/completions",
         "method": "POST"
       },
-      "why": "a raw identifier hidden behind the prefix"
+      "why": "a raw identifier behind the prefix"
     },
     {
       "expect_reason": "context_malformed",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjplcGlzb2RlLTciLCJncm91cGluZ19rZXlfZXBvY2giOjEsInByb2plY3RfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjozYTgyYWUwYjQ4NGViMzcwIiwicmVwbGF5X3Njb3BlX2xpbWl0IjoibW9kZWxfb3V0cHV0X29ubHkiLCJzY2hlbWFfdmVyc2lvbiI6ImRyYW1hY2xhdy5icmFpbmNsYXctY29udGV4dC92MSIsInR1cm5fa2luZCI6ImZvcmVncm91bmRfdXNlciJ9.hdJIZRn8dR2mYhL45-7zo_DkVp3SUs1y-EKPOiDcux4",
-      "name": "raw_episode_identifier",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OnRyYWplY3RvcnktNyIsInR1cm5fa2luZCI6ImZvcmVncm91bmRfdXNlciJ9.oTS1FaJapAca_PUmx6_B6fW2SfAumz01mQitSGX5pMM",
+      "name": "raw_trajectory_identifier",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
         "endpoint_path": "/v1/chat/completions",
         "method": "POST"
       },
-      "why": "a raw identifier hidden behind the prefix"
+      "why": "a raw identifier behind the prefix"
     },
     {
       "expect_reason": "context_malformed",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2U1YTFkOWI3YzIwNDY4IiwicmVwbGF5X3Njb3BlX2xpbWl0IjoibW9kZWxfb3V0cHV0X29ubHkiLCJzY2hlbWFfdmVyc2lvbiI6ImRyYW1hY2xhdy5icmFpbmNsYXctY29udGV4dC92MSIsInR1cm5fa2luZCI6ImZvcmVncm91bmRfdXNlciJ9.GaAkC6IbSFybYozp31why3_dhuLsyG3kk0eOcYKjQDo",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNlNWExZDliN2MyMDQ2OCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0cmFqZWN0b3J5X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6ZTQ0OWE5OGQ4NDcxYTQ1MSIsInR1cm5fa2luZCI6ImZvcmVncm91bmRfdXNlciJ9.YSe_P4DsS6kUi-1OlYZvZxZIH2pG4haJPGlVC_3Izms",
       "name": "group_id_too_short",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
         "endpoint_path": "/v1/chat/completions",
         "method": "POST"
       },
-      "why": "15 hex characters; group_id() emits exactly 16"
+      "why": "15 hex characters"
     },
     {
       "expect_reason": "context_malformed",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2U1YTFkOWI3YzIwNDY4OWEiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHVybl9raW5kIjoiZm9yZWdyb3VuZF91c2VyIn0.Awnmj3tWlK1g7NeePm4S9AsF7YKClGp-kqf8frSd4BQ",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNlNWExZDliN2MyMDQ2ODlhIiwicmVwbGF5X3Njb3BlX2xpbWl0IjoibW9kZWxfb3V0cHV0X29ubHkiLCJzY2hlbWFfdmVyc2lvbiI6ImRyYW1hY2xhdy5icmFpbmNsYXctY29udGV4dC92MSIsInRyYWplY3RvcnlfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjplNDQ5YTk4ZDg0NzFhNDUxIiwidHVybl9raW5kIjoiZm9yZWdyb3VuZF91c2VyIn0.9Uc_GDFASF3DETxrbo92lEN8EpkQF-WP18Z_Pu7s-tw",
       "name": "group_id_too_long",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
@@ -186,40 +187,40 @@
     },
     {
       "expect_reason": "context_malformed",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1Njo5ZjJiN2MxZTRhNmQ4MHp6IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.FlHMlK-OAUEiqMy40UpRuFfrQUAC56dF7VPvd0tm2kM",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjlmMmI3YzFlNGE2ZDgwenoiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.V8mWzzEN98OcyiOoInk8YejZUhBeLJ8USxX9QmqqRGk",
       "name": "group_id_not_hex",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
         "endpoint_path": "/v1/chat/completions",
         "method": "POST"
       },
-      "why": "non-hex characters in the digest"
+      "why": "non-hex digest"
     },
     {
       "expect_reason": "context_malformed",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1Njo5RjJCN0MxRTRBNkQ4MDM1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.wA_dKdQU8wGOKbv244Vqq8nOJpJ0J4ZLuiLlQVYKsEM",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjlGMkI3QzFFNEE2RDgwMzUiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ.5ilWLiyAXqLG725q0-N1Nxvryvx1P6qJt2mtAJDwB1w",
       "name": "group_id_uppercase_hex",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
         "endpoint_path": "/v1/chat/completions",
         "method": "POST"
       },
-      "why": "uppercase hex; the contract emits lowercase only"
+      "why": "uppercase hex"
     },
     {
       "expect_reason": "context_malformed",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6IiwicmVwbGF5X3Njb3BlX2xpbWl0IjoibW9kZWxfb3V0cHV0X29ubHkiLCJzY2hlbWFfdmVyc2lvbiI6ImRyYW1hY2xhdy5icmFpbmNsYXctY29udGV4dC92MSIsInR1cm5fa2luZCI6ImZvcmVncm91bmRfdXNlciJ9.5J92iNfVR-Od8gRRXnvbZtM-FkvMllLNu3LjLFgYXpY",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OiIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0cmFqZWN0b3J5X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6ZTQ0OWE5OGQ4NDcxYTQ1MSIsInR1cm5fa2luZCI6ImZvcmVncm91bmRfdXNlciJ9.F2V2ShhvgxywnNCd989ktGa8GEkkk-TL87bzKCQz65Q",
       "name": "group_id_empty_suffix",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
         "endpoint_path": "/v1/chat/completions",
         "method": "POST"
       },
-      "why": "prefix with no digest at all"
+      "why": "prefix with no digest"
     },
     {
       "expect_reason": "context_malformed",
-      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTE6OWYyYjdjMWU0YTZkODAzNSIsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHVybl9raW5kIjoiZm9yZWdyb3VuZF91c2VyIn0.PlDt0658b2ejRVXMlRBaqgGLGC_-AFwFg0bGaJrb5Yo",
+      "header_value": "v1.dc-2026-08.eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMTo5ZjJiN2MxZTRhNmQ4MDM1IiwidHVybl9raW5kIjoiZm9yZWdyb3VuZF91c2VyIn0.aFfaQkZPXOApzEGOe3Vbtjow9FEj76H8ZFj4QGNnqQA",
       "name": "group_id_wrong_algorithm",
       "request": {
         "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
@@ -233,14 +234,14 @@
   "opaque_group_id_pattern": "^hmac-sha256:[0-9a-f]{16}$",
   "payload": {
     "checkpoint_ordinal": 4,
-    "episode_group_id": "hmac-sha256:112c87de48f51c55",
     "grouping_key_epoch": 1,
     "project_group_id": "hmac-sha256:3a82ae0b484eb370",
     "replay_scope_limit": "model_output_only",
     "schema_version": "dramaclaw.brainclaw-context/v1",
+    "trajectory_group_id": "hmac-sha256:e449a98d8471a451",
     "turn_kind": "foreground_user"
   },
-  "payload_base64url": "eyJjaGVja3BvaW50X29yZGluYWwiOjQsImVwaXNvZGVfZ3JvdXBfaWQiOiJobWFjLXNoYTI1NjoxMTJjODdkZTQ4ZjUxYzU1IiwiZ3JvdXBpbmdfa2V5X2Vwb2NoIjoxLCJwcm9qZWN0X2dyb3VwX2lkIjoiaG1hYy1zaGEyNTY6M2E4MmFlMGI0ODRlYjM3MCIsInJlcGxheV9zY29wZV9saW1pdCI6Im1vZGVsX291dHB1dF9vbmx5Iiwic2NoZW1hX3ZlcnNpb24iOiJkcmFtYWNsYXcuYnJhaW5jbGF3LWNvbnRleHQvdjEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ",
+  "payload_base64url": "eyJjaGVja3BvaW50X29yZGluYWwiOjQsImdyb3VwaW5nX2tleV9lcG9jaCI6MSwicHJvamVjdF9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OjNhODJhZTBiNDg0ZWIzNzAiLCJyZXBsYXlfc2NvcGVfbGltaXQiOiJtb2RlbF9vdXRwdXRfb25seSIsInNjaGVtYV92ZXJzaW9uIjoiZHJhbWFjbGF3LmJyYWluY2xhdy1jb250ZXh0L3YxIiwidHJhamVjdG9yeV9ncm91cF9pZCI6ImhtYWMtc2hhMjU2OmU0NDlhOThkODQ3MWE0NTEiLCJ0dXJuX2tpbmQiOiJmb3JlZ3JvdW5kX3VzZXIifQ",
   "request": {
     "body_sha256_hex": "b885744b888ad1468eeb2e078fc92563bd2853e87043726b7479083f98d52a5b",
     "body_utf8": "{\"model\":\"brainclaw\",\"messages\":[{\"role\":\"user\",\"content\":\"修复刚才失败的画布命令\"}]}",
@@ -248,7 +249,7 @@
     "method": "POST"
   },
   "schema_version": "brainclaw.control-context-vectors/v1",
-  "signature_base64url": "X0_IlI8gjjLJ9lgFv9mmFgFwIjxLpWPRrgYzKBpCkTs",
+  "signature_base64url": "txpacAL9sZAbhH6rmpjl-rkuIHbKCla6ybPccB_g5fE",
   "signing_key_hex": "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c4b5a69788796a5b4c3d2e1f0",
   "signing_key_id": "dc-2026-08"
 }

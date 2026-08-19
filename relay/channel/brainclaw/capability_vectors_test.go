@@ -17,7 +17,7 @@ import (
 const (
 	vectorsPath   = "testdata/control-capability-vectors.json"
 	sourcePath    = "testdata/SOURCE.json"
-	vectorsSHA256 = "92957af5e68e881906804a4a86dcb98b67fdb41169256f8df4a0b21bba202f87"
+	vectorsSHA256 = "d5ed7de1d3ddb51d74c3cf955dac712b105f96e51b1f656d2dce9af603656830"
 )
 
 type vectorDocument struct {
@@ -83,8 +83,8 @@ func TestFrozenPositiveCapabilityVerifies(t *testing.T) {
 		t.Fatalf("the frozen positive vector was rejected: %s", result.Reason)
 	}
 	claims := result.Claims
-	if claims.EpisodeGroupID != document.Positive.Claims["episode_group_id"] {
-		t.Fatalf("episode group id mismatch: %q", claims.EpisodeGroupID)
+	if claims.TrajectoryGroupID != document.Positive.Claims["trajectory_group_id"] {
+		t.Fatalf("trajectory group id mismatch: %q", claims.TrajectoryGroupID)
 	}
 	if claims.ProjectGroupID != document.Positive.Claims["project_group_id"] {
 		t.Fatalf("project group id mismatch: %q", claims.ProjectGroupID)
@@ -116,30 +116,30 @@ func TestEveryFrozenNegativeCapabilityIsRefused(t *testing.T) {
 func TestEachFrozenNegativeFailsForItsOwnReason(t *testing.T) {
 	document, verifier := loadVectors(t)
 	expected := map[string]string{
-		"payload_tampered":       CapabilitySignatureBad,
-		"signature_tampered":     CapabilitySignatureBad,
-		"wrong_signing_key":      CapabilitySignatureBad,
-		"unknown_key_id":         CapabilityKeyUnknown,
-		"wrong_audience":         CapabilityAudienceBad,
-		"wrong_issuer":           CapabilityClaimsInvalid,
-		"wrong_schema_version":   CapabilityClaimsInvalid,
-		"expired":                CapabilityExpired,
-		"issued_in_the_future":   CapabilityNotYetValid,
-		"ttl_over_cap":           CapabilityTTLTooLong,
-		"expires_before_issued":  CapabilityClaimsInvalid,
-		"raw_episode_identifier": CapabilityClaimsInvalid,
-		"raw_project_identifier": CapabilityClaimsInvalid,
-		"illegal_replay_scope":   CapabilityClaimsInvalid,
-		"illegal_turn_kind":      CapabilityClaimsInvalid,
-		"negative_epoch":         CapabilityClaimsInvalid,
-		"additional_property":    CapabilityClaimsInvalid,
-		"missing_claim":          CapabilityClaimsInvalid,
-		"crlf_injection":         CapabilityMalformed,
-		"padded_base64":          CapabilityMalformed,
-		"too_few_segments":       CapabilityMalformed,
-		"too_many_segments":      CapabilityMalformed,
-		"empty":                  CapabilityMissing,
-		"oversize":               CapabilityMalformed,
+		"payload_tampered":          CapabilitySignatureBad,
+		"signature_tampered":        CapabilitySignatureBad,
+		"wrong_signing_key":         CapabilitySignatureBad,
+		"unknown_key_id":            CapabilityKeyUnknown,
+		"wrong_audience":            CapabilityAudienceBad,
+		"wrong_issuer":              CapabilityClaimsInvalid,
+		"wrong_schema_version":      CapabilityClaimsInvalid,
+		"expired":                   CapabilityExpired,
+		"issued_in_the_future":      CapabilityNotYetValid,
+		"ttl_over_cap":              CapabilityTTLTooLong,
+		"expires_before_issued":     CapabilityClaimsInvalid,
+		"raw_trajectory_identifier": CapabilityClaimsInvalid,
+		"raw_project_identifier":    CapabilityClaimsInvalid,
+		"illegal_replay_scope":      CapabilityClaimsInvalid,
+		"illegal_turn_kind":         CapabilityClaimsInvalid,
+		"negative_epoch":            CapabilityClaimsInvalid,
+		"additional_property":       CapabilityClaimsInvalid,
+		"missing_claim":             CapabilityClaimsInvalid,
+		"crlf_injection":            CapabilityMalformed,
+		"padded_base64":             CapabilityMalformed,
+		"too_few_segments":          CapabilityMalformed,
+		"too_many_segments":         CapabilityMalformed,
+		"empty":                     CapabilityMissing,
+		"oversize":                  CapabilityMalformed,
 	}
 	for _, testCase := range document.Negative {
 		want, known := expected[testCase.Name]

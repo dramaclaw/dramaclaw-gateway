@@ -30,7 +30,7 @@ func TestChainCanaryStage2(t *testing.T) {
 		CapabilityKeyID  string `json:"capability_key_id"`
 		Rows             []struct {
 			TurnID     string `json:"turn_id"`
-			Episode    string `json:"episode"`
+			Trajectory string `json:"trajectory"`
 			Project    string `json:"project"`
 			Capability string `json:"capability"`
 			Method     string `json:"method"`
@@ -55,19 +55,19 @@ func TestChainCanaryStage2(t *testing.T) {
 	}
 
 	// Durable-ordinal stand-in with the same contract as the database one:
-	// idempotent per (episode, fingerprint), monotonic per episode.
+	// idempotent per (trajectory, fingerprint), monotonic per trajectory.
 	var ordinalMutex sync.Mutex
 	assigned := map[string]int64{}
 	nextPerEpisode := map[string]int64{}
-	Configure(verifier, signer, func(episode, fingerprint string, _, _ int64) (int64, error) {
+	Configure(verifier, signer, func(trajectory, fingerprint string, _, _ int64) (int64, error) {
 		ordinalMutex.Lock()
 		defer ordinalMutex.Unlock()
-		key := episode + "\x00" + fingerprint
+		key := trajectory + "\x00" + fingerprint
 		if existing, seen := assigned[key]; seen {
 			return existing, nil
 		}
-		ordinal := nextPerEpisode[episode]
-		nextPerEpisode[episode] = ordinal + 1
+		ordinal := nextPerEpisode[trajectory]
+		nextPerEpisode[trajectory] = ordinal + 1
 		assigned[key] = ordinal
 		return ordinal, nil
 	})
@@ -76,7 +76,7 @@ func TestChainCanaryStage2(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	type signedRow struct {
 		TurnID           string `json:"turn_id"`
-		Episode          string `json:"episode"`
+		Trajectory       string `json:"trajectory"`
 		Project          string `json:"project"`
 		Method           string `json:"method"`
 		Path             string `json:"path"`
@@ -94,7 +94,7 @@ func TestChainCanaryStage2(t *testing.T) {
 		group.Add(1)
 		go func(index int, row struct {
 			TurnID     string `json:"turn_id"`
-			Episode    string `json:"episode"`
+			Trajectory string `json:"trajectory"`
 			Project    string `json:"project"`
 			Capability string `json:"capability"`
 			Method     string `json:"method"`
@@ -112,7 +112,7 @@ func TestChainCanaryStage2(t *testing.T) {
 			header, ok := SignOutboundRequest(context, outbound, true,
 				row.Method, row.Path, []byte(row.Body), time.Now().Unix())
 			results[index] = signedRow{
-				TurnID: row.TurnID, Episode: row.Episode, Project: row.Project,
+				TurnID: row.TurnID, Trajectory: row.Trajectory, Project: row.Project,
 				Method: row.Method, Path: row.Path, Body: row.Body,
 				ControlContext: header, Attested: ok,
 				// The capability must never survive onto the provider request.

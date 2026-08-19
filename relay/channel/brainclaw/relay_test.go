@@ -45,8 +45,8 @@ func testRuntime(t *testing.T) (*CapabilityClaims, string) {
 	}
 
 	ordinals := map[string]int64{}
-	Configure(verifier, signer, func(episode, fingerprint string, _, _ int64) (int64, error) {
-		key := episode + "\x00" + fingerprint
+	Configure(verifier, signer, func(trajectory, fingerprint string, _, _ int64) (int64, error) {
+		key := trajectory + "\x00" + fingerprint
 		if existing, seen := ordinals[key]; seen {
 			return existing, nil
 		}
@@ -157,7 +157,7 @@ func TestASignedRequestCarriesAVerifiableControlContext(t *testing.T) {
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload.EpisodeGroupID != claims.EpisodeGroupID ||
+	if payload.TrajectoryGroupID != claims.TrajectoryGroupID ||
 		payload.ProjectGroupID != claims.ProjectGroupID ||
 		payload.GroupingKeyEpoch != claims.GroupingKeyEpoch {
 		t.Fatalf("identity was not carried forward: %+v", payload)

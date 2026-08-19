@@ -33,7 +33,7 @@ var safeKeyID = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,128}$`)
 // languages cannot diverge on canonicalisation.
 type ControlContextPayload struct {
 	SchemaVersion     string `json:"schema_version"`
-	EpisodeGroupID    string `json:"episode_group_id"`
+	TrajectoryGroupID string `json:"trajectory_group_id"`
 	ProjectGroupID    string `json:"project_group_id"`
 	GroupingKeyEpoch  int64  `json:"grouping_key_epoch"`
 	CheckpointOrdinal int64  `json:"checkpoint_ordinal"`
@@ -81,7 +81,7 @@ func validateControlContextPayload(payload ControlContextPayload) error {
 	if payload.SchemaVersion != ControlContextPayloadSchema {
 		return fmt.Errorf("unexpected control context schema")
 	}
-	if !opaqueGroupID.MatchString(payload.EpisodeGroupID) ||
+	if !opaqueGroupID.MatchString(payload.TrajectoryGroupID) ||
 		!opaqueGroupID.MatchString(payload.ProjectGroupID) {
 		// A caller with no project concept repeats the episode id; BrainClaw
 		// never invents a grouping it cannot see, and neither does this.
@@ -145,7 +145,7 @@ func (signer *ControlContextSigner) Sign(payload ControlContextPayload, method, 
 func PayloadFromCapability(claims *CapabilityClaims, checkpointOrdinal int64) ControlContextPayload {
 	return ControlContextPayload{
 		SchemaVersion:     ControlContextPayloadSchema,
-		EpisodeGroupID:    claims.EpisodeGroupID,
+		TrajectoryGroupID: claims.TrajectoryGroupID,
 		ProjectGroupID:    claims.ProjectGroupID,
 		GroupingKeyEpoch:  claims.GroupingKeyEpoch,
 		CheckpointOrdinal: checkpointOrdinal,

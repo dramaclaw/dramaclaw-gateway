@@ -15,7 +15,7 @@ import (
 // being accepted downstream, without needing BrainClaw in the loop.
 const (
 	controlContextVectorsPath   = "testdata/control-context-vectors.json"
-	controlContextVectorsSHA256 = "e0bcbbdf6da93be8a9b27f64f3b66d36b969c11d89021b1c0f029f0a05993d24"
+	controlContextVectorsSHA256 = "20224ff713e31311468f8a9c71062b4f8c2db1d7f799e57390aa05b8185fb1c3"
 )
 
 type controlContextVectors struct {
@@ -125,10 +125,10 @@ func TestTheSignatureIsBoundToMethodPathAndBody(t *testing.T) {
 func TestIllegalPayloadsAreRefusedRatherThanSigned(t *testing.T) {
 	vectors, signer := loadControlContextVectors(t)
 	for name, mutate := range map[string]func(ControlContextPayload) ControlContextPayload{
-		"raw episode id":   func(p ControlContextPayload) ControlContextPayload { p.EpisodeGroupID = "episode-7"; return p },
-		"raw project id":   func(p ControlContextPayload) ControlContextPayload { p.ProjectGroupID = "proj-7"; return p },
-		"missing project":  func(p ControlContextPayload) ControlContextPayload { p.ProjectGroupID = ""; return p },
-		"negative ordinal": func(p ControlContextPayload) ControlContextPayload { p.CheckpointOrdinal = -1; return p },
+		"raw trajectory id": func(p ControlContextPayload) ControlContextPayload { p.TrajectoryGroupID = "trajectory-7"; return p },
+		"raw project id":    func(p ControlContextPayload) ControlContextPayload { p.ProjectGroupID = "proj-7"; return p },
+		"missing project":   func(p ControlContextPayload) ControlContextPayload { p.ProjectGroupID = ""; return p },
+		"negative ordinal":  func(p ControlContextPayload) ControlContextPayload { p.CheckpointOrdinal = -1; return p },
 		"ordinal overflow": func(p ControlContextPayload) ControlContextPayload {
 			p.CheckpointOrdinal = MaxCheckpointOrdinal + 1
 			return p
@@ -146,14 +146,14 @@ func TestIllegalPayloadsAreRefusedRatherThanSigned(t *testing.T) {
 
 func TestPayloadFromCapabilityCarriesTheClaimsForward(t *testing.T) {
 	claims := &CapabilityClaims{
-		EpisodeGroupID:   "hmac-sha256:99c6bbfa841348d8",
-		ProjectGroupID:   "hmac-sha256:5818b4f4a66dc78a",
-		GroupingKeyEpoch: 3,
-		TurnKind:         "foreground_user",
-		ReplayScopeLimit: "model_output_only",
+		TrajectoryGroupID: "hmac-sha256:99c6bbfa841348d8",
+		ProjectGroupID:    "hmac-sha256:5818b4f4a66dc78a",
+		GroupingKeyEpoch:  3,
+		TurnKind:          "foreground_user",
+		ReplayScopeLimit:  "model_output_only",
 	}
 	payload := PayloadFromCapability(claims, 11)
-	if payload.EpisodeGroupID != claims.EpisodeGroupID ||
+	if payload.TrajectoryGroupID != claims.TrajectoryGroupID ||
 		payload.ProjectGroupID != claims.ProjectGroupID ||
 		payload.GroupingKeyEpoch != 3 ||
 		payload.TurnKind != claims.TurnKind ||

@@ -125,7 +125,7 @@ func SignOutboundRequest(c *gin.Context, request *http.Request, enabled bool,
 	if signer == nil || allocate == nil {
 		return "", false
 	}
-	ordinal, err := allocate(claims.EpisodeGroupID,
+	ordinal, err := allocate(claims.TrajectoryGroupID,
 		RequestFingerprint(method, endpointPath, body), claims.GroupingKeyEpoch, now)
 	if err != nil {
 		// The ordinal is durable state; if it cannot be established, an

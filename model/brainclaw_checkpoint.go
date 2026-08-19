@@ -26,7 +26,7 @@ import (
 // and fine: the ordinal is a label, not an ordering guarantee.
 type BrainClawCheckpoint struct {
 	Id                 int64  `json:"id" gorm:"primaryKey"`
-	EpisodeGroupId     string `json:"episode_group_id" gorm:"type:varchar(64);not null;uniqueIndex:idx_bc_episode_fingerprint,priority:1;uniqueIndex:idx_bc_episode_ordinal,priority:1"`
+	TrajectoryGroupId  string `json:"trajectory_group_id" gorm:"type:varchar(64);not null;uniqueIndex:idx_bc_episode_fingerprint,priority:1;uniqueIndex:idx_bc_episode_ordinal,priority:1"`
 	RequestFingerprint string `json:"request_fingerprint" gorm:"type:varchar(80);not null;uniqueIndex:idx_bc_episode_fingerprint,priority:2"`
 	CheckpointOrdinal  int64  `json:"checkpoint_ordinal" gorm:"not null;uniqueIndex:idx_bc_episode_ordinal,priority:2"`
 	GroupingKeyEpoch   int64  `json:"grouping_key_epoch" gorm:"not null"`
@@ -63,14 +63,14 @@ const maxOrdinalAllocationAttempts = 8
 // An earlier version handled only the first and treated the second as a failure,
 // which threw away the losing request's evidence entirely under ordinary
 // concurrency — the one case the durable allocator exists to survive.
-func AssignCheckpointOrdinal(episodeGroupId, requestFingerprint string, groupingKeyEpoch, now int64) (int64, error) {
-	if episodeGroupId == "" || requestFingerprint == "" {
+func AssignCheckpointOrdinal(trajectoryGroupId, requestFingerprint string, groupingKeyEpoch, now int64) (int64, error) {
+	if trajectoryGroupId == "" || requestFingerprint == "" {
 		return 0, ErrCheckpointOrdinalUnavailable
 	}
 	var lastErr error
 	for attempt := 0; attempt < maxOrdinalAllocationAttempts; attempt++ {
 		ordinal, done, err := tryAssignCheckpointOrdinal(
-			episodeGroupId, requestFingerprint, groupingKeyEpoch, now)
+			trajectoryGroupId, requestFingerprint, groupingKeyEpoch, now)
 		if err != nil {
 			lastErr = err
 			break
@@ -89,12 +89,12 @@ func AssignCheckpointOrdinal(episodeGroupId, requestFingerprint string, grouping
 // tryAssignCheckpointOrdinal performs one attempt. done=false means the ordinal
 // was taken by another request and the caller should try again.
 func tryAssignCheckpointOrdinal(
-	episodeGroupId, requestFingerprint string, groupingKeyEpoch, now int64,
+	trajectoryGroupId, requestFingerprint string, groupingKeyEpoch, now int64,
 ) (ordinal int64, done bool, err error) {
 	err = DB.Transaction(func(tx *gorm.DB) error {
 		var existing BrainClawCheckpoint
-		lookup := tx.Where("episode_group_id = ? AND request_fingerprint = ?",
-			episodeGroupId, requestFingerprint).First(&existing)
+		lookup := tx.Where("trajectory_group_id = ? AND request_fingerprint = ?",
+			trajectoryGroupId, requestFingerprint).First(&existing)
 		if lookup.Error == nil {
 			ordinal, done = existing.CheckpointOrdinal, true
 			return nil
@@ -104,7 +104,7 @@ func tryAssignCheckpointOrdinal(
 		}
 		var maximum *int64
 		if scanErr := tx.Model(&BrainClawCheckpoint{}).
-			Where("episode_group_id = ?", episodeGroupId).
+			Where("trajectory_group_id = ?", trajectoryGroupId).
 			Select("MAX(checkpoint_ordinal)").Scan(&maximum).Error; scanErr != nil {
 			return scanErr
 		}
@@ -113,7 +113,7 @@ func tryAssignCheckpointOrdinal(
 			next = *maximum + 1
 		}
 		record := BrainClawCheckpoint{
-			EpisodeGroupId:     episodeGroupId,
+			TrajectoryGroupId:  trajectoryGroupId,
 			RequestFingerprint: requestFingerprint,
 			CheckpointOrdinal:  next,
 			GroupingKeyEpoch:   groupingKeyEpoch,
@@ -127,8 +127,8 @@ func tryAssignCheckpointOrdinal(
 			// Which constraint rejected it decides what happens next, and the
 			// row itself is the only reliable way to tell them apart.
 			var winner BrainClawCheckpoint
-			byFingerprint := tx.Where("episode_group_id = ? AND request_fingerprint = ?",
-				episodeGroupId, requestFingerprint).First(&winner)
+			byFingerprint := tx.Where("trajectory_group_id = ? AND request_fingerprint = ?",
+				trajectoryGroupId, requestFingerprint).First(&winner)
 			if byFingerprint.Error == nil {
 				// Same request, already numbered: idempotent.
 				ordinal, done = winner.CheckpointOrdinal, true

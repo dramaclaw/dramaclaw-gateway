@@ -101,19 +101,19 @@ func TestSameRequestUnderConcurrencyGetsOneOrdinal(t *testing.T) {
 func TestTheUniqueConstraintsExist(t *testing.T) {
 	truncateTables(t)
 	require.NoError(t, DB.Exec(
-		"INSERT INTO brainclaw_checkpoints(episode_group_id,request_fingerprint,checkpoint_ordinal,grouping_key_epoch,created_time) VALUES(?,?,?,?,?)",
+		"INSERT INTO brainclaw_checkpoints(trajectory_group_id,request_fingerprint,checkpoint_ordinal,grouping_key_epoch,created_time) VALUES(?,?,?,?,?)",
 		"hmac-sha256:eeeeeeeeeeeeeeee", "sha256:one", 0, 1, 1).Error)
 
 	// Same episode + same fingerprint: one checkpoint, not two.
 	assert.Error(t, DB.Exec(
-		"INSERT INTO brainclaw_checkpoints(episode_group_id,request_fingerprint,checkpoint_ordinal,grouping_key_epoch,created_time) VALUES(?,?,?,?,?)",
+		"INSERT INTO brainclaw_checkpoints(trajectory_group_id,request_fingerprint,checkpoint_ordinal,grouping_key_epoch,created_time) VALUES(?,?,?,?,?)",
 		"hmac-sha256:eeeeeeeeeeeeeeee", "sha256:one", 7, 1, 2).Error,
 		"a duplicate (episode, fingerprint) must be rejected")
 
 	// Same episode + same ordinal for a different request: two checkpoints
 	// sharing a label would silently merge in the training table.
 	assert.Error(t, DB.Exec(
-		"INSERT INTO brainclaw_checkpoints(episode_group_id,request_fingerprint,checkpoint_ordinal,grouping_key_epoch,created_time) VALUES(?,?,?,?,?)",
+		"INSERT INTO brainclaw_checkpoints(trajectory_group_id,request_fingerprint,checkpoint_ordinal,grouping_key_epoch,created_time) VALUES(?,?,?,?,?)",
 		"hmac-sha256:eeeeeeeeeeeeeeee", "sha256:two", 0, 1, 3).Error,
 		"a duplicate (episode, ordinal) must be rejected")
 }
