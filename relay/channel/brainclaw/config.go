@@ -147,41 +147,7 @@ func ConfigureFromEnvironment(
 	if allocator == nil {
 		return false, fmt.Errorf("BrainClaw evidence requires a checkpoint ordinal allocator")
 	}
-	Configure(verifier, signer, observedAllocator(allocator))
+	Configure(verifier, signer, allocator)
 	return true, nil
 }
 
-// observedAllocator counts ordinal outcomes at the injection boundary.
-//
-// Wrapped here rather than instrumented inside the allocator: the allocator
-// lives in `model`, and having `model` reach back into this package to report
-// would invert the dependency that keeps the evidence plane optional. This is
-// the seam the allocator already crosses.
-//
-// A conflict absorbed by the retry is still reported. It is harmless only
-// until the retry budget runs out, and the point of the counter is to show the
-// contention rising before that happens.
-func observedAllocator(
-	allocator func(trajectoryGroupID, requestFingerprint string, epoch, now int64) (int64, error),
-) func(string, string, int64, int64) (int64, error) {
-	if allocator == nil {
-		return nil
-	}
-	return func(trajectoryGroupID, requestFingerprint string, epoch, now int64) (int64, error) {
-		ordinal, err := allocator(trajectoryGroupID, requestFingerprint, epoch, now)
-		// Matched on the message rather than the sentinel: the sentinel lives
-		// in `model`, and importing it here would recreate the dependency this
-		// wrapper exists to avoid. The distinction only has to separate "the
-		// ordinal could not be established" from any other failure, and a
-		// miscategorised counter is a reporting defect, not a serving one.
-		switch {
-		case err == nil:
-			ObserveOrdinal("assigned")
-		case strings.Contains(err.Error(), "ordinal unavailable"):
-			ObserveOrdinal("conflict")
-		default:
-			ObserveOrdinal("error")
-		}
-		return ordinal, err
-	}
-}

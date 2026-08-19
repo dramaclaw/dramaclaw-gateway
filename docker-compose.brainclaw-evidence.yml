@@ -1,0 +1,77 @@
+# Gateway with the BrainClaw evidence plane wired.
+#
+# Kept apart from docker-compose.yml, which is upstream's example and tracks
+# upstream's image. This file pins the fork, because the evidence plane does not
+# exist in the upstream build: starting the stock image with these variables set
+# produces a gateway that ignores them, serves normally, and signs nothing —
+# which looks exactly like a working deployment until someone asks where the
+# attestations went.
+#
+# Keys, and which side may hold which:
+#   K1 capability      DramaClaw signs, this gateway verifies
+#   K2 control context this gateway signs, BrainClaw verifies
+#   K3 grouping        DramaClaw only. Never mounted here. It derives the
+#                      opaque identifiers, so a copy on this side would turn a
+#                      verifier into a minter of identities it should only pass
+#                      through.
+services:
+  new-api:
+    # Built from this fork, not pulled. Replace with the pinned digest once the
+    # branch is merged and an image is published.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${GATEWAY_IMAGE:-dramaclaw/new-api:brainclaw-evidence}
+    container_name: new-api
+    restart: always
+    command: --log-dir /app/logs
+    ports:
+      - "${GATEWAY_BIND_ADDRESS:-127.0.0.1}:${GATEWAY_PORT:-3000}:3000"
+    volumes:
+      - ./data:/data
+      - ./logs:/app/logs
+      # Owner-only, and owned by the uid this container runs as. A key that is
+      # 0400 and owned by someone else is both correctly restrictive and inert:
+      # the gateway starts, cannot read it, and runs with no signer — a
+      # supported configuration, so nothing complains.
+      - ${GATEWAY_STATE_DIR:?set GATEWAY_STATE_DIR}/capability-keyring.json:/run/secrets/brainclaw_capability_keyring:ro
+      - ${GATEWAY_STATE_DIR}/control-context.key:/run/secrets/brainclaw_control_context_key:ro
+    environment:
+      - SQL_DSN=${GATEWAY_SQL_DSN:?set GATEWAY_SQL_DSN}
+      - REDIS_CONN_STRING=${GATEWAY_REDIS_CONN_STRING:-}
+      - TZ=${TZ:-Asia/Singapore}
+      - ERROR_LOG_ENABLED=true
+      - BATCH_UPDATE_ENABLED=false
+      - NODE_NAME=${GATEWAY_NODE_NAME:-new-api-brainclaw}
+      # The evidence plane. Both key paths or neither: half a configuration is
+      # rejected at startup rather than serving unsigned traffic that looks
+      # configured.
+      - BRAINCLAW_CAPABILITY_KEYRING_FILE=/run/secrets/brainclaw_capability_keyring
+      - BRAINCLAW_CONTROL_CONTEXT_KEY_FILE=/run/secrets/brainclaw_control_context_key
+      - BRAINCLAW_CONTROL_CONTEXT_KEY_ID=${BRAINCLAW_CONTROL_CONTEXT_KEY_ID:?set the key id the keyring names}
+      # How often the reason counters are logged. Short during a canary, long
+      # during a soak.
+      - BRAINCLAW_EVIDENCE_REPORT_SECONDS=${BRAINCLAW_EVIDENCE_REPORT_SECONDS:-300}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: new-api-postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:?set POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-new-api}
+      - TZ=${TZ:-Asia/Singapore}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pg_data:

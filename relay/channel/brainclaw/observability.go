@@ -1,8 +1,10 @@
 package brainclaw
 
 import (
+	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -112,6 +114,26 @@ func HaltingCounts() map[string]int64 {
 		}
 	}
 	return halting
+}
+
+// EvidenceReportingPeriodEnv overrides how often the counters are logged.
+const EvidenceReportingPeriodEnv = "BRAINCLAW_EVIDENCE_REPORT_SECONDS"
+
+// EvidenceReportingPeriod is the configured period, defaulting to five minutes.
+//
+// Configurable because the useful cadence is not the same across stages: a
+// canary wants to see the counters within a run, a 24-hour soak does not want
+// them every minute.
+func EvidenceReportingPeriod() time.Duration {
+	raw := strings.TrimSpace(os.Getenv(EvidenceReportingPeriodEnv))
+	if raw == "" {
+		return 5 * time.Minute
+	}
+	seconds, err := strconv.Atoi(raw)
+	if err != nil || seconds <= 0 {
+		return 5 * time.Minute
+	}
+	return time.Duration(seconds) * time.Second
 }
 
 // StartEvidencePlaneReporting logs the counters on a fixed period.

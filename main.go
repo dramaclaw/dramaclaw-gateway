@@ -322,6 +322,9 @@ func InitResources() error {
 	// Keys that are present but unusable are fatal, because silently serving
 	// without the attestation an operator explicitly configured is precisely
 	// the failure this contract exists to prevent.
+	// Wired here because neither package may depend on the other: the
+	// allocator lives in model, the counters in brainclaw.
+	model.ObserveOrdinalAttempt = brainclaw.ObserveOrdinal
 	if configured, brainclawErr := brainclaw.ConfigureFromEnvironment(
 		model.AssignCheckpointOrdinal,
 	); brainclawErr != nil {
@@ -329,6 +332,9 @@ func InitResources() error {
 		return brainclawErr
 	} else if configured {
 		common.SysLog("BrainClaw evidence plane configured: capability verifier and control context signer active")
+		// Periodic rather than on-request: the counters exist so an operator can
+		// see the plane go quiet, and a signal nobody emits is one nobody reads.
+		brainclaw.StartEvidencePlaneReporting(brainclaw.EvidenceReportingPeriod())
 	}
 
 	// Initialize options, should after model.InitDB()

@@ -86,6 +86,22 @@ func isRetryableStorageError(err error) bool {
 // An earlier version handled only the first and treated the second as a failure,
 // which threw away the losing request's evidence entirely under ordinary
 // concurrency — the one case the durable allocator exists to survive.
+// ObserveOrdinalAttempt reports what happened inside one allocation, if set.
+//
+// A hook rather than a direct call so this package keeps no dependency on the
+// evidence plane; `main` wires the two together. It exists because the outcome
+// visible to the caller is only the final one: a conflict that the retry
+// absorbs returns success, so counting return values alone reports contention
+// as "assigned" and the operator sees nothing until the retry budget is already
+// exhausted. That is precisely the moment it is too late to learn.
+var ObserveOrdinalAttempt func(outcome string)
+
+func observeOrdinalAttempt(outcome string) {
+	if ObserveOrdinalAttempt != nil {
+		ObserveOrdinalAttempt(outcome)
+	}
+}
+
 func AssignCheckpointOrdinal(trajectoryGroupId, requestFingerprint string, groupingKeyEpoch, now int64) (int64, error) {
 	if trajectoryGroupId == "" || requestFingerprint == "" {
 		return 0, ErrCheckpointOrdinalUnavailable
@@ -95,6 +111,10 @@ func AssignCheckpointOrdinal(trajectoryGroupId, requestFingerprint string, group
 		ordinal, done, err := tryAssignCheckpointOrdinal(
 			trajectoryGroupId, requestFingerprint, groupingKeyEpoch, now)
 		if done && err == nil {
+			if attempt > 0 {
+				observeOrdinalAttempt("conflict_absorbed")
+			}
+			observeOrdinalAttempt("assigned")
 			return ordinal, nil
 		}
 		if err != nil {
@@ -106,14 +126,17 @@ func AssignCheckpointOrdinal(trajectoryGroupId, requestFingerprint string, group
 			// file with billing and logging writes, so lock contention is
 			// expected under load; treating it as terminal silently drops the
 			// attestation for a request that was served perfectly well.
+			observeOrdinalAttempt("storage_contention")
 			time.Sleep(time.Duration(attempt+1) * 2 * time.Millisecond)
 			continue
 		}
 		// Lost the ordinal race; re-read the maximum and step past the winner.
+		observeOrdinalAttempt("ordinal_race_lost")
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("exhausted %d ordinal allocation attempts", maxOrdinalAllocationAttempts)
 	}
+	observeOrdinalAttempt("exhausted")
 	return 0, fmt.Errorf("%w: %v", ErrCheckpointOrdinalUnavailable, lastErr)
 }
 
