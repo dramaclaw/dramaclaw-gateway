@@ -39,7 +39,9 @@ Provider-specific fields must not be added to the public contract merely to make
 one adapter easier to implement. Do not infer a workflow mode from a model name.
 Do not silently omit an unsupported field or media item.
 
-The canonical protocol is [`dc-media-protocol.md`](./dc-media-protocol.md).
+The canonical English protocol is
+[`dc-media-protocol.en.md`](./dc-media-protocol.en.md). The corresponding
+Chinese specification is [`dc-media-protocol.md`](./dc-media-protocol.md).
 
 ## Choose the Adapter Type
 

@@ -1,9 +1,11 @@
-# DC-Media Protocol v1: English Implementation Reference
+# DC-Media Protocol v1: Concise English Implementation Reference
 
-This document is an English implementation reference for contributors. The
-canonical specification is [`dc-media-protocol.md`](../../../dc-media-protocol.md).
-When the documents disagree, the canonical specification and its contract tests
-take precedence.
+This document is a concise implementation reference for contributors. The full
+English specification is
+[`dc-media-protocol.en.md`](../../../dc-media-protocol.en.md), paired with the
+Chinese [`dc-media-protocol.md`](../../../dc-media-protocol.md). When this guide
+and the full specification disagree, the full specification and its contract
+tests take precedence.
 
 ## Goals and Boundaries
 

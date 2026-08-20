@@ -1,23 +1,25 @@
 # DC-Media Development Documentation
 
 This directory is for contributors building provider and model adapters for
-`dramaclaw-gateway`. The canonical public request and response contract is
-[`dc-media-protocol.md`](../../../dc-media-protocol.md). These documents explain
-how to implement and test that contract.
+`dramaclaw-gateway`. The canonical English public request and response contract
+is [`dc-media-protocol.en.md`](../../../dc-media-protocol.en.md), paired with the
+Chinese [`dc-media-protocol.md`](../../../dc-media-protocol.md). These documents
+explain how to implement and test that contract.
 
 ## Reading Order
 
-1. [`protocol.md`](./protocol.md): standalone English implementation reference.
-   The canonical specification remains [`dc-media-protocol.md`](../../../dc-media-protocol.md).
-2. [`adapter-development.md`](./adapter-development.md): adapter types,
+1. [`dc-media-protocol.en.md`](../../../dc-media-protocol.en.md): complete
+   English protocol specification.
+2. [`protocol.md`](./protocol.md): concise English implementation reference.
+3. [`adapter-development.md`](./adapter-development.md): adapter types,
    registration, and conversion rules.
-3. [`example-adapter.md`](./example-adapter.md): minimal asynchronous video
+4. [`example-adapter.md`](./example-adapter.md): minimal asynchronous video
    adapter example.
-4. [`model-onboarding-checklist.md`](./model-onboarding-checklist.md): model
+5. [`model-onboarding-checklist.md`](./model-onboarding-checklist.md): model
    implementation and verification checklist.
-5. [`../../providers/en/README.md`](../../providers/en/README.md): current
+6. [`../../providers/en/README.md`](../../providers/en/README.md): current
    registration status and contribution opportunities.
-6. [`upstream-sync-release.md`](./upstream-sync-release.md): New API upstream
+7. [`upstream-sync-release.md`](./upstream-sync-release.md): New API upstream
    synchronization and release requirements.
 
 ## Contribution Entry Points

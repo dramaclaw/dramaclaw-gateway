@@ -50,7 +50,8 @@ fail explicitly.
 - [DC-Media documentation](./docs/dc-media/en/README.md)
 - [Adapter development guide](./docs/dc-media/en/adapter-development.md)
 - [Channel support matrix](./docs/providers/en/README.md)
-- [Canonical protocol](./dc-media-protocol.md)
+- [Canonical protocol (English)](./dc-media-protocol.en.md)
+- [Canonical protocol (Chinese)](./dc-media-protocol.md)
 
 This repository is based on [New API](https://github.com/QuantumNous/new-api)
 and preserves its original project information, attribution, documentation, and
