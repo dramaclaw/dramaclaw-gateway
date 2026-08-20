@@ -1,5 +1,7 @@
 # DC-Media-Protocol：媒体模型统一请求协议
 
+简体中文 | [English](./dc-media-protocol.en.md)
+
 > 状态：草案
 >
 > 适用范围：DramaClaw 图片与视频模型接入
