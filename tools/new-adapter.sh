@@ -3,11 +3,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$ROOT_DIR}"
 PROVIDER="${PROVIDER:-}"
 CHANNEL_TYPE="${TYPE:-}"
 MODE="${MODE:-}"
 DISPLAY_NAME="${NAME:-$PROVIDER}"
 CAPABILITIES="${CAPABILITIES:-}"
+GOFMT_BIN="${GOFMT_BIN:-gofmt}"
 
 fail() {
   printf 'new-adapter: %s\n' "$1" >&2
@@ -20,6 +22,11 @@ fi
 
 [[ "$PROVIDER" =~ ^[a-z][a-z0-9_]*$ ]] ||
   fail 'PROVIDER must start with a lowercase letter and contain only lowercase letters, digits, and underscores'
+case "$PROVIDER" in
+  break|default|func|interface|select|case|defer|go|map|struct|chan|else|goto|package|switch|const|fallthrough|if|range|type|continue|for|import|return|var)
+    fail "PROVIDER must not be a Go keyword: $PROVIDER"
+    ;;
+esac
 [[ "$CHANNEL_TYPE" =~ ^[1-9][0-9]*$ ]] || fail 'TYPE must be a positive integer'
 [[ "$MODE" == "sync" || "$MODE" == "task" ]] || fail 'MODE must be sync or task'
 [[ "$DISPLAY_NAME" =~ ^[A-Za-z0-9._[:space:]-]+$ ]] ||
@@ -29,10 +36,10 @@ if grep -Eq "ChannelType[A-Za-z0-9_]+[[:space:]]*=[[:space:]]*${CHANNEL_TYPE}([^
   fail "TYPE ${CHANNEL_TYPE} is already assigned in constant/channel.go"
 fi
 
-if [[ -d "$ROOT_DIR/relay/channel/$PROVIDER" ||
-      -d "$ROOT_DIR/relay/channel/task/$PROVIDER" ||
-      -e "$ROOT_DIR/docs/providers/$PROVIDER.md" ||
-      -e "$ROOT_DIR/docs/providers/en/$PROVIDER.md" ]]; then
+if [[ -d "$OUTPUT_ROOT/relay/channel/$PROVIDER" ||
+      -d "$OUTPUT_ROOT/relay/channel/task/$PROVIDER" ||
+      -e "$OUTPUT_ROOT/docs/providers/$PROVIDER.md" ||
+      -e "$OUTPUT_ROOT/docs/providers/en/$PROVIDER.md" ]]; then
   fail "provider ${PROVIDER} already has an adapter or provider document"
 fi
 
@@ -59,14 +66,39 @@ for raw_capability in "${capability_items[@]}"; do
 done
 
 if [[ "$MODE" == "task" ]]; then
-  ADAPTER_DIR="$ROOT_DIR/relay/channel/task/$PROVIDER"
+  TARGET_ADAPTER_DIR="$OUTPUT_ROOT/relay/channel/task/$PROVIDER"
 else
-  ADAPTER_DIR="$ROOT_DIR/relay/channel/$PROVIDER"
+  TARGET_ADAPTER_DIR="$OUTPUT_ROOT/relay/channel/$PROVIDER"
 fi
-DOC_FILE="$ROOT_DIR/docs/providers/$PROVIDER.md"
-DOC_EN_FILE="$ROOT_DIR/docs/providers/en/$PROVIDER.md"
+TARGET_DOC_FILE="$OUTPUT_ROOT/docs/providers/$PROVIDER.md"
+TARGET_DOC_EN_FILE="$OUTPUT_ROOT/docs/providers/en/$PROVIDER.md"
 
-mkdir -p "$ADAPTER_DIR" "$(dirname "$DOC_FILE")" "$(dirname "$DOC_EN_FILE")"
+STAGE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/dramaclaw-new-adapter.XXXXXX")"
+ADAPTER_DIR="$STAGE_DIR/adapter"
+DOC_FILE="$STAGE_DIR/provider.md"
+DOC_EN_FILE="$STAGE_DIR/provider.en.md"
+PUBLISHED_ADAPTER=0
+PUBLISHED_DOC=0
+PUBLISHED_DOC_EN=0
+PUBLISH_COMPLETE=0
+
+cleanup() {
+  if [[ "$PUBLISH_COMPLETE" -ne 1 ]]; then
+    if [[ "$PUBLISHED_DOC_EN" -eq 1 ]]; then
+      rm -f "$TARGET_DOC_EN_FILE"
+    fi
+    if [[ "$PUBLISHED_DOC" -eq 1 ]]; then
+      rm -f "$TARGET_DOC_FILE"
+    fi
+    if [[ "$PUBLISHED_ADAPTER" -eq 1 ]]; then
+      rm -rf "$TARGET_ADAPTER_DIR"
+    fi
+  fi
+  rm -rf "$STAGE_DIR"
+}
+trap cleanup EXIT
+
+mkdir -p "$ADAPTER_DIR"
 
 cat > "$ADAPTER_DIR/constants.go" <<EOF
 package $PROVIDER
@@ -377,12 +409,28 @@ upstream request is sent.
 - TODO
 EOF
 
-gofmt -w "$ADAPTER_DIR/adaptor.go" "$ADAPTER_DIR/adaptor_test.go" "$ADAPTER_DIR/constants.go"
+"$GOFMT_BIN" -w "$ADAPTER_DIR/adaptor.go" "$ADAPTER_DIR/adaptor_test.go" "$ADAPTER_DIR/constants.go"
+
+if [[ -d "$OUTPUT_ROOT/relay/channel/$PROVIDER" ||
+      -d "$OUTPUT_ROOT/relay/channel/task/$PROVIDER" ||
+      -e "$TARGET_DOC_FILE" ||
+      -e "$TARGET_DOC_EN_FILE" ]]; then
+  fail "provider ${PROVIDER} was created while the scaffold was being prepared"
+fi
+
+mkdir -p "$(dirname "$TARGET_ADAPTER_DIR")" "$(dirname "$TARGET_DOC_FILE")" "$(dirname "$TARGET_DOC_EN_FILE")"
+mv "$ADAPTER_DIR" "$TARGET_ADAPTER_DIR"
+PUBLISHED_ADAPTER=1
+mv "$DOC_FILE" "$TARGET_DOC_FILE"
+PUBLISHED_DOC=1
+mv "$DOC_EN_FILE" "$TARGET_DOC_EN_FILE"
+PUBLISHED_DOC_EN=1
+PUBLISH_COMPLETE=1
 
 printf 'Created %s adapter scaffold for %s.\n' "$MODE" "$PROVIDER"
-printf '  %s\n' "${ADAPTER_DIR#$ROOT_DIR/}/adaptor.go"
-printf '  %s\n' "${ADAPTER_DIR#$ROOT_DIR/}/adaptor_test.go"
-printf '  %s\n' "${ADAPTER_DIR#$ROOT_DIR/}/constants.go"
-printf '  %s\n' "${DOC_FILE#$ROOT_DIR/}"
-printf '  %s\n' "${DOC_EN_FILE#$ROOT_DIR/}"
-printf '\nNo shared registry was changed. Complete the checklist in %s before registering the adapter.\n' "${DOC_FILE#$ROOT_DIR/}"
+printf '  %s\n' "${TARGET_ADAPTER_DIR#$OUTPUT_ROOT/}/adaptor.go"
+printf '  %s\n' "${TARGET_ADAPTER_DIR#$OUTPUT_ROOT/}/adaptor_test.go"
+printf '  %s\n' "${TARGET_ADAPTER_DIR#$OUTPUT_ROOT/}/constants.go"
+printf '  %s\n' "${TARGET_DOC_FILE#$OUTPUT_ROOT/}"
+printf '  %s\n' "${TARGET_DOC_EN_FILE#$OUTPUT_ROOT/}"
+printf '\nNo shared registry was changed. Complete the checklist in %s before registering the adapter.\n' "${TARGET_DOC_FILE#$OUTPUT_ROOT/}"

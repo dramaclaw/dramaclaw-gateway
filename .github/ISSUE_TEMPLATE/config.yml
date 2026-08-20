@@ -1,8 +1,14 @@
 blank_issues_enabled: false
 contact_links:
-  - name: DC-Media 开发文档 / Development documentation
-    url: https://github.com/dramaclaw/dramaclaw-gateway/tree/main/docs/dc-media
-    about: 提交 Issue 前请先查阅协议、适配器指南和渠道支持矩阵。
-  - name: 贡献指南 / Contribution guide
+  - name: 使用文档 / Documentation
+    url: https://docs.newapi.ai/
+    about: 提交 issue 前请先查阅文档，确认现有说明无法解决你的问题。
+  - name: 使用问题 / Usage Questions
+    url: https://deepwiki.com/QuantumNous/new-api
+    about: 使用、配置、接入等问题请优先在 DeepWiki 查询或提问。
+  - name: dramaclaw-gateway 渠道接入指南
+    url: https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.zh_CN.md
+    about: 新增供应商渠道或模型前，请先阅读 DC-Media 约束、适配器结构和验证要求。
+  - name: dramaclaw-gateway Channel Onboarding
     url: https://github.com/dramaclaw/dramaclaw-gateway/blob/main/CONTRIBUTING.md
-    about: 渠道注册、测试要求和 Pull Request 合入标准。
+    about: Read the DC-Media adapter contract and verification requirements before contributing a provider.
