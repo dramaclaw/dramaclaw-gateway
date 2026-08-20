@@ -1,3 +1,69 @@
+<div align="center" data-project="dramaclaw-gateway">
+
+# dramaclaw-gateway
+
+**The open-source model protocol gateway for [DramaClaw](https://github.com/dramaclaw/dramaclaw)**
+
+[简体中文](./README.zh_CN.md) | English
+
+</div>
+
+`dramaclaw-gateway` accepts the DC-Media contract used by DramaClaw, normalizes
+media roles, and converts requests into provider-specific APIs.
+
+```text
+DramaClaw -> DC-Media -> dramaclaw-gateway -> provider adapter -> provider API
+```
+
+## Quick Start
+
+Requirements: Go from [`go.mod`](./go.mod), Bun `1.3.14`, and Docker Compose.
+
+```bash
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git
+cd dramaclaw-gateway
+make dev-api
+```
+
+Start the frontend in another terminal:
+
+```bash
+make dev-web
+```
+
+Open `http://localhost:5173`. To rebuild the API after Go changes, run
+`make dev-api-rebuild`.
+
+## Contribute a Provider
+
+Start a compile-safe synchronous or asynchronous adapter scaffold:
+
+```bash
+make new-adapter PROVIDER=example TYPE=64 MODE=task CAPABILITIES=video
+```
+
+The generator creates adapter, test, and bilingual provider-document stubs. It
+does not edit shared channel registries, and unimplemented upstream operations
+fail explicitly.
+
+- [Contribution guide](./CONTRIBUTING.md)
+- [DC-Media documentation](./docs/dc-media/en/README.md)
+- [Adapter development guide](./docs/dc-media/en/adapter-development.md)
+- [Channel support matrix](./docs/providers/en/README.md)
+- [Canonical protocol](./dc-media-protocol.md)
+
+This repository is based on [New API](https://github.com/QuantumNous/new-api)
+and preserves its original project information, attribution, documentation, and
+license notices below. `dramaclaw-gateway` media endpoints follow DC-Media
+semantics and do not promise compatibility with historical New API media task
+request or response shapes.
+
+---
+
+## Preserved Upstream New API Documentation
+
+The following upstream New API README is preserved in full.
+
 <div align="center">
 
 ![new-api](/web/public/logo.png)

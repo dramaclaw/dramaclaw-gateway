@@ -26,3 +26,12 @@
 
 ## 📸 运行证明 / Proof of Work
 (请在此粘贴截图、关键日志或测试报告，以证明变更生效)
+
+## 🔌 渠道适配检查 / Provider Adapter Checklist
+<!-- 非渠道或模型适配 PR 可删除本节。Remove this section when the PR is not a provider/model adapter. -->
+- [ ] 已记录官方接口文档、上游模型 ID、能力限制和验证日期。
+- [ ] 已声明渠道级 capabilities，且未依赖模型名称猜测协议能力。
+- [ ] 已覆盖 DC-Media 字段转换、素材角色和不支持组合。
+- [ ] 异步任务已覆盖任务 ID、状态、错误、结果读取及取消语义。
+- [ ] 已更新 `docs/providers/` 支持矩阵和供应商说明。
+- [ ] 已使用真实供应商账号及 DramaClaw 完成脱敏端到端验证。

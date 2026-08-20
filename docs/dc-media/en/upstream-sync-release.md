@@ -1,17 +1,17 @@
 # Upstream Synchronization and Release Guide
 
-RelayClaw CE uses `dramaclaw/dramaclaw-gateway` as `origin` and
+`dramaclaw-gateway` uses `dramaclaw/dramaclaw-gateway` as `origin` and
 `QuantumNous/new-api` as its upstream. Synchronization should continue to reuse
 New API channels and foundational capabilities while keeping the
 `DC-Media-Protocol` contract stable.
 
 ## Synchronizing Upstream
 
-1. Create a dedicated synchronization branch from the latest RelayClaw CE `main`.
+1. Create a dedicated synchronization branch from the latest `dramaclaw-gateway` `main`.
 2. Fetch a stable New API upstream revision. Do not mix new adapter work into the same commit.
 3. After merging or rebasing, resolve conflicts in `relay/common`, `relay/channel/task`, task models, and video routes first.
 4. Preserve the New API license, NOTICE, copyright notices, source attribution, and commit history.
-5. Check newly introduced channel numbers for conflicts with RelayClaw CE types such as `ChannelTypeComfyUI`.
+5. Check newly introduced channel numbers for conflicts with `dramaclaw-gateway` types such as `ChannelTypeComfyUI`.
 6. Run both the original New API tests and the focused DC protocol tests.
 
 Recommended verification:
@@ -49,5 +49,5 @@ restriction is not evidence that the code passes.
 
 An incompatible protocol change requires a protocol version bump. A provider's
 internal field change that leaves the public request and response unchanged
-requires only a RelayClaw CE release and does not require a synchronized
+requires only a `dramaclaw-gateway` release and does not require a synchronized
 DramaClaw release.

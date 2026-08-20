@@ -1,7 +1,15 @@
 # DC 媒体适配器开发指南
 
-本文说明如何在 RelayClaw CE 中为 `DC-Media-Protocol v1` 增加供应商适配。
+本文说明如何在 `dramaclaw-gateway` 中为 `DC-Media-Protocol v1` 增加供应商适配。
 协议定义以仓库根目录的 `dc-media-protocol.md` 为准。
+
+新渠道可以先生成安全骨架：
+
+```bash
+make new-adapter PROVIDER=example TYPE=64 MODE=task CAPABILITIES=video
+```
+
+生成器不会修改共享注册表，生成后的适配器在完成供应商转换前只会返回未实现错误。
 
 ## 开始之前
 
@@ -25,7 +33,7 @@
 - 若供应商支持安全的按任务取消，实现可选的 `channel.TaskCanceller`。
 
 `TaskAdaptor` 的职责分为验证、请求构造、提交响应解析、任务查询和查询响应解析。
-公共任务 ID 与供应商任务 ID 必须分开保存，客户端只能看到 RelayClaw CE 生成的
+公共任务 ID 与供应商任务 ID 必须分开保存，客户端只能看到 `dramaclaw-gateway` 生成的
 `task_*` ID。
 
 ## 请求转换

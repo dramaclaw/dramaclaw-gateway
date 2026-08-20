@@ -8,7 +8,7 @@ DEV_POSTGRES_DB = new-api
 DEV_POSTGRES_USER = root
 DEV_SQLITE_PATH ?= one-api.db
 
-.PHONY: all build-web build-all-web start-api dev dev-api dev-api-rebuild dev-web reset-setup test
+.PHONY: all build-web build-all-web start-api dev dev-api dev-api-rebuild dev-web new-adapter reset-setup test test-new-adapter
 
 all: build-all-web start-api
 
@@ -39,14 +39,25 @@ dev-web:
 
 dev: dev-api dev-web
 
+new-adapter: export PROVIDER := $(PROVIDER)
+new-adapter: export TYPE := $(TYPE)
+new-adapter: export MODE := $(MODE)
+new-adapter: export NAME := $(NAME)
+new-adapter: export CAPABILITIES := $(CAPABILITIES)
+new-adapter:
+	@./tools/new-adapter.sh
+
 # The main package embeds the ignored web/dist output and is covered after build-web.
-test:
+test: test-new-adapter
 	@echo "Testing root Go module..."
 	@root_module=$$(GOWORK=off go list -m); \
 		root_packages=$$(GOWORK=off go list -e ./... | grep -vxF "$$root_module"); \
 		GOWORK=off go test $$root_packages
 	@echo "Testing relaykit Go module..."
 	@cd relaykit && GOWORK=off go test ./...
+
+test-new-adapter:
+	@./tools/new-adapter_test.sh
 
 reset-setup:
 	@echo "Resetting local setup wizard state..."
