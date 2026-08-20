@@ -8,8 +8,8 @@ body:
       value: |
         ## Read This First (Do Not Remove This Section)
 
-        - Docs: https://docs.newapi.ai/
-        - Usage questions first: https://deepwiki.com/QuantumNous/new-api
+        - Docs: https://github.com/dramaclaw/dramaclaw-gateway/tree/main/docs/dc-media/en
+        - Use the dedicated Provider adapter request template for provider work.
         - Issues about forwarding behavior after enabling pass-through mode are not accepted; pass-through mode forwards requests directly, so please verify upstream behavior yourself.
         - Reports about Coding Plan services, reverse-engineered channels, third-party API wrappers, or compatibility issues caused by exposing a Codex endpoint through a reverse proxy as a general-purpose API are not accepted. Protocols or behavior specific to the Codex API should not be treated as standard OpenAI API behavior; confirm such issues with the channel or API provider first.
         - Warning: issues with this template removed, section headings deleted, or content cleared may be closed directly. Repeated abusive submissions may result in a block.
@@ -17,7 +17,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Your current newapi version
+      label: Your current dramaclaw-gateway version
       description: "Please fill this in, for example: `v1.0.0`"
     validations:
       required: true
@@ -27,9 +27,9 @@ body:
     attributes:
       label: Submission Checks
       options:
-        - label: "**Non-duplicate issue:** I have searched existing [Issues](https://github.com/QuantumNous/new-api/issues?q=is%3Aissue) and confirmed there are no similar issues."
+        - label: "**Non-duplicate issue:** I have searched existing [Issues](https://github.com/dramaclaw/dramaclaw-gateway/issues?q=is%3Aissue) and confirmed there are no similar issues."
           required: true
-        - label: "**Read this first:** I have fully read the section above, reviewed the docs at https://docs.newapi.ai/ and the project README, and asked AI first, confirming this is not a usage, configuration, or integration question, and that the current version cannot meet my needs."
+        - label: "**Read this first:** I reviewed the project README and DC-Media documentation and confirmed the current version cannot meet this requirement."
           required: true
         - label: "**Template intact:** I have not removed any guidance or section headings from this template and will complete it as requested."
           required: true

@@ -1,16 +1,16 @@
 # 上游同步与发布说明
 
-RelayClaw CE 的 `origin` 是 `dramaclaw/dramaclaw-gateway`，上游是
+`dramaclaw-gateway` 的 `origin` 是 `dramaclaw/dramaclaw-gateway`，上游是
 `QuantumNous/new-api`。同步目标是持续复用 New API 的渠道和基础能力，同时保持
 `DC-Media-Protocol` 契约稳定。
 
 ## 同步上游
 
-1. 从最新 RelayClaw CE `main` 创建独立同步分支。
+1. 从最新 `dramaclaw-gateway` `main` 创建独立同步分支。
 2. 获取 New API 上游稳定节点，不在同一提交中混入新适配器功能。
 3. 合并或变基后优先解决 `relay/common`、`relay/channel/task`、任务模型和视频路由冲突。
 4. 保留 New API 的许可证、NOTICE、版权、来源说明和提交历史。
-5. 检查新增渠道编号，避免与 `ChannelTypeComfyUI` 等 RelayClaw CE 类型冲突。
+5. 检查新增渠道编号，避免与 `ChannelTypeComfyUI` 等 `dramaclaw-gateway` 类型冲突。
 6. 运行 New API 原测试和 DC 协议定向测试。
 
 建议验证：
@@ -46,4 +46,4 @@ cd ../web && bun install --frozen-lockfile && bun run typecheck && bun run build
 6. 创建版本标签和发行物；不要把本地数据库、渠道密钥、Workflow 素材或结果文件打包。
 
 协议发生不兼容变化时必须升级协议版本。供应商内部字段变化但公共请求和响应不变时，
-只发布 RelayClaw CE，不要求同步发布 DramaClaw。
+只发布 `dramaclaw-gateway`，不要求同步发布 DramaClaw。
