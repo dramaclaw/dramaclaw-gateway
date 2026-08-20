@@ -191,6 +191,30 @@ func TestDoResponseReturnsAudioBinaryAndTracksDuration(t *testing.T) {
 	assert.Equal(t, 6, usage.(*dto.Usage).CompletionTokens)
 }
 
+func TestDoResponseRejectsOverflowingDurationAndRecordsClamp(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/audio/speech", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     make(http.Header),
+		Body: io.NopCloser(strings.NewReader(
+			`{"code":0,"audio":"` + base64.StdEncoding.EncodeToString([]byte("audio-data")) + `","original_duration":1e300}`,
+		)),
+	}
+	info := &relaycommon.RelayInfo{}
+
+	usage, relayErr := (&Adaptor{}).DoResponse(c, resp, info)
+
+	require.Nil(t, usage)
+	require.NotNil(t, relayErr)
+	assert.Contains(t, relayErr.Error(), "invalid original_duration")
+	require.NotNil(t, info.QuotaClamp)
+	assert.Equal(t, common.QuotaClampOverflow, info.QuotaClamp.Kind)
+	assert.Equal(t, common.MaxQuota, info.QuotaClamp.Clamped)
+	assert.Empty(t, recorder.Body.String())
+}
+
 func TestDoResponseReturnsCanonicalURL(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)

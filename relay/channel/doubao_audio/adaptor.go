@@ -249,7 +249,10 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		return nil, types.NewOpenAIError(errors.New(message), types.ErrorCodeBadResponse, status)
 	}
 
-	usage = doubaoAudioUsage(info, upstream.OriginalDuration, upstream.Duration)
+	usage, err = doubaoAudioUsage(info, upstream.OriginalDuration, upstream.Duration)
+	if err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusBadGateway)
+	}
 	audio := strings.TrimSpace(upstream.Audio)
 	if audio != "" {
 		if comma := strings.Index(audio, ","); strings.HasPrefix(strings.ToLower(audio), "data:") && comma >= 0 {
@@ -390,13 +393,27 @@ func doubaoAudioContentType(responseFormat string) string {
 	}
 }
 
-func doubaoAudioUsage(info *relaycommon.RelayInfo, originalDuration, duration float64) *dto.Usage {
+func doubaoAudioUsage(info *relaycommon.RelayInfo, originalDuration, duration float64) (*dto.Usage, error) {
 	if originalDuration <= 0 {
 		originalDuration = duration
 	}
 	audioTokens := 0
 	if originalDuration > 0 {
-		audioTokens = int(math.Ceil(originalDuration))
+		var clamp *common.QuotaClamp
+		audioTokens, clamp = common.QuotaFromFloatChecked(math.Ceil(originalDuration))
+		if clamp != nil {
+			if info != nil && info.QuotaClamp == nil {
+				info.QuotaClamp = clamp
+			}
+			return nil, fmt.Errorf("doubao audio returned invalid original_duration: %w", clamp)
+		}
+		if originalDuration > float64(maxOutputDurationMS)/1000 {
+			return nil, fmt.Errorf(
+				"doubao audio original_duration %.3g exceeds provider limit of %d seconds",
+				originalDuration,
+				maxOutputDurationMS/1000,
+			)
+		}
 	}
 	promptTokens := 0
 	if info != nil {
@@ -409,5 +426,5 @@ func doubaoAudioUsage(info *relaycommon.RelayInfo, originalDuration, duration fl
 		CompletionTokenDetails: dto.OutputTokenDetails{
 			AudioTokens: audioTokens,
 		},
-	}
+	}, nil
 }
