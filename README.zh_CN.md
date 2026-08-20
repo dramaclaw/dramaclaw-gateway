@@ -1,3 +1,65 @@
+<div align="center" data-project="dramaclaw-gateway">
+
+# dramaclaw-gateway
+
+**面向 [DramaClaw](https://github.com/dramaclaw/dramaclaw) 的开源模型协议转换网关**
+
+简体中文 | [English](./README.md)
+
+</div>
+
+`dramaclaw-gateway` 接收 DramaClaw 使用的 DC-Media 协议，完成媒体角色标准化，并将请求
+转换为不同模型供应商的接口协议。
+
+```text
+DramaClaw -> DC-Media -> dramaclaw-gateway -> 渠道适配器 -> 模型供应商
+```
+
+## 快速开始
+
+需要准备 [`go.mod`](./go.mod) 声明的 Go 版本、Bun `1.3.14` 和 Docker Compose。
+
+```bash
+git clone https://github.com/dramaclaw/dramaclaw-gateway.git
+cd dramaclaw-gateway
+make dev-api
+```
+
+在另一个终端启动前端：
+
+```bash
+make dev-web
+```
+
+访问 `http://localhost:5173`。修改 Go 代码后使用 `make dev-api-rebuild` 重建 API。
+
+## 贡献渠道适配器
+
+使用以下命令生成默认不可调用、但能够通过编译的同步或异步适配器骨架：
+
+```bash
+make new-adapter PROVIDER=example TYPE=64 MODE=task CAPABILITIES=video
+```
+
+生成器会创建适配器、测试和中英文供应商文档骨架，不会修改共享渠道注册表；尚未实现的
+上游操作会明确返回错误。
+
+- [贡献指南](./CONTRIBUTING.zh_CN.md)
+- [DC-Media 文档](./docs/dc-media/README.md)
+- [适配器开发指南](./docs/dc-media/adapter-development.md)
+- [渠道支持矩阵](./docs/providers/README.md)
+- [协议原文](./dc-media-protocol.md)
+
+本仓库基于 [New API](https://github.com/QuantumNous/new-api) 开发，并在下方完整保留其原始
+项目信息、署名、文档及许可证声明。`dramaclaw-gateway` 的媒体接口以 DC-Media 语义为准，
+不承诺兼容原 New API 的历史媒体任务请求和响应结构。
+
+---
+
+## 完整保留的上游 New API 文档
+
+以下内容完整保留自上游 New API README。
+
 <div align="center">
 
 ![new-api](/web/public/logo.png)

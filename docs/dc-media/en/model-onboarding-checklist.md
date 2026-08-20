@@ -30,7 +30,7 @@
 
 ## Asynchronous Tasks
 
-- [ ] The creation response exposes only the RelayClaw CE public task ID.
+- [ ] The creation response exposes only the `dramaclaw-gateway` public task ID.
 - [ ] The upstream task ID is stored only in private task data.
 - [ ] Query states are mapped to stable public states.
 - [ ] Successful results use array semantics, including single-result responses.
