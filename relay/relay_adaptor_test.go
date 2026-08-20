@@ -22,3 +22,11 @@ func TestGetAdaptorsSupportFalChannel(t *testing.T) {
 	require.NotNil(t, GetAdaptor(constant.APITypeFal))
 	require.NotNil(t, GetTaskAdaptor(constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeFal))))
 }
+
+func TestGetAdaptorSupportsDoubaoAudioChannel(t *testing.T) {
+	require.Equal(t, 62, constant.ChannelTypeDoubaoAudio)
+	apiType, ok := common.ChannelType2APIType(constant.ChannelTypeDoubaoAudio)
+	require.True(t, ok)
+	require.Equal(t, constant.APITypeDoubaoAudio, apiType)
+	require.NotNil(t, GetAdaptor(apiType))
+}
