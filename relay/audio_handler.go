@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/relaykit/dto"
@@ -54,7 +55,18 @@ func AudioHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	if resp != nil {
 		httpResp = resp.(*http.Response)
 		if httpResp.StatusCode != http.StatusOK {
-			newAPIError = service.RelayErrorHandler(c.Request.Context(), httpResp, false)
+			if errorAdaptor, ok := adaptor.(channel.HTTPErrorResponseAdaptor); ok {
+				newAPIError = errorAdaptor.DoErrorResponse(c, httpResp, info)
+			} else {
+				newAPIError = service.RelayErrorHandler(c.Request.Context(), httpResp, false)
+			}
+			if newAPIError == nil {
+				newAPIError = types.NewOpenAIError(
+					errors.New("upstream returned a non-success status without an error"),
+					types.ErrorCodeBadResponseStatusCode,
+					httpResp.StatusCode,
+				)
+			}
 			// reset status code 重置状态码
 			service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 			return newAPIError

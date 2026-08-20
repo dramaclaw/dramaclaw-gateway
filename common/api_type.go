@@ -77,6 +77,8 @@ func ChannelType2APIType(channelType int) (int, bool) {
 		apiType = constant.APITypeCodex
 	case constant.ChannelTypeFal:
 		apiType = constant.APITypeFal
+	case constant.ChannelTypeDoubaoAudio:
+		apiType = constant.APITypeDoubaoAudio
 	case constant.ChannelTypeAdvancedCustom:
 		apiType = constant.APITypeAdvancedCustom
 	case constant.ChannelTypeSub2API:

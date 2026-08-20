@@ -50,6 +50,12 @@ type BaseURLMetadataProvider interface {
 	GetBaseURLPolicy() (requiresBaseURL, supportsBaseURLOverride bool)
 }
 
+// HTTPErrorResponseAdaptor lets an adaptor parse provider-specific non-2xx
+// responses before the relay falls back to the generic error handler.
+type HTTPErrorResponseAdaptor interface {
+	DoErrorResponse(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) *types.NewAPIError
+}
+
 type TaskAdaptor interface {
 	Init(info *relaycommon.RelayInfo)
 

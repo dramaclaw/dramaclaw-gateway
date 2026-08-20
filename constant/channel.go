@@ -59,6 +59,7 @@ const (
 	ChannelTypeSub2API        = 59
 	ChannelTypeNewAPI         = 60
 	ChannelTypeFal            = 61
+	ChannelTypeDoubaoAudio    = 62
 	// Keep 63 aligned with DramaClaw and the commercial RelayClaw channel ID.
 	ChannelTypeComfyUI = 63
 	ChannelTypeDummy   // this one is only for count, do not add any channel after this
@@ -128,7 +129,7 @@ var ChannelBaseURLs = []string{
 	"",                                          //59
 	"",                                          //60
 	"https://fal.run",                           //61
-	"",                                          //62
+	"https://openspeech.bytedance.com",          //62
 	"http://127.0.0.1:8188",                     //63, ComfyUI
 }
 
@@ -191,6 +192,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeSub2API:        "Sub2API",
 	ChannelTypeNewAPI:         "New API",
 	ChannelTypeFal:            "fal.ai",
+	ChannelTypeDoubaoAudio:    "DoubaoAudio",
 	ChannelTypeComfyUI:        "ComfyUI",
 }
 
