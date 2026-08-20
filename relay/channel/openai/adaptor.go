@@ -41,6 +41,13 @@ type Adaptor struct {
 	ResponseFormat string
 }
 
+func (a *Adaptor) GetCapabilities() []string {
+	if a.ChannelType == constant.ChannelTypeOpenRouter {
+		return []string{"text", "vision", "embedding"}
+	}
+	return nil
+}
+
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
 	result, err := service.ConvertRequest(c, info, types.RelayFormatOpenAI, request)
 	if err != nil {

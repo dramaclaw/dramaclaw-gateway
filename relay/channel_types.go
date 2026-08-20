@@ -72,8 +72,9 @@ func buildChannelTypeMetadata(channelType int) (ChannelTypeMetadata, bool) {
 			syncModels = append(syncModels, adaptor.GetModelList()...)
 			provider = normalizeProviderID(adaptor.GetChannelName())
 			if metadata, ok := adaptor.(channel.CapabilityMetadataProvider); ok {
-				declaredCapabilities = append(declaredCapabilities, metadata.GetCapabilities()...)
-				hasDeclaredSyncCapabilities = true
+				capabilities := metadata.GetCapabilities()
+				declaredCapabilities = append(declaredCapabilities, capabilities...)
+				hasDeclaredSyncCapabilities = len(capabilities) > 0
 			}
 			if metadata, ok := adaptor.(channel.BaseURLMetadataProvider); ok {
 				requires, supportsOverride := metadata.GetBaseURLPolicy()

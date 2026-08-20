@@ -17,6 +17,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/coze"
 	"github.com/QuantumNous/new-api/relay/channel/deepseek"
 	"github.com/QuantumNous/new-api/relay/channel/dify"
+	"github.com/QuantumNous/new-api/relay/channel/doubao_audio"
 	"github.com/QuantumNous/new-api/relay/channel/fal"
 	"github.com/QuantumNous/new-api/relay/channel/gemini"
 	"github.com/QuantumNous/new-api/relay/channel/jimeng"
@@ -104,6 +105,8 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &mokaai.Adaptor{}
 	case constant.APITypeVolcEngine:
 		return &volcengine.Adaptor{}
+	case constant.APITypeDoubaoAudio:
+		return &doubao_audio.Adaptor{}
 	case constant.APITypeBaiduV2:
 		return &baidu_v2.Adaptor{}
 	case constant.APITypeOpenRouter:

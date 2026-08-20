@@ -175,6 +175,17 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       models: 'fal.ai model IDs',
     },
   },
+  62: {
+    id: 62,
+    name: CHANNEL_TYPES[62],
+    icon: 'doubao',
+    defaultBaseUrl: 'https://openspeech.bytedance.com',
+    hints: {
+      baseUrl: 'Doubao Audio API endpoint',
+      key: 'Doubao Voice API key',
+      models: 'Models configured for the Doubao Audio channel',
+    },
+  },
   63: {
     id: 63,
     name: CHANNEL_TYPES[63],

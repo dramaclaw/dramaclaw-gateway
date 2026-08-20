@@ -27,6 +27,17 @@ func TestGetRegisteredChannelTypes(t *testing.T) {
 	assert.Equal(t, "fal_ai", fal.Provider)
 	assert.Equal(t, []string{"image", "video", "audio"}, fal.Capabilities)
 
+	openRouter := channelTypeMetadataByType(t, items, constant.ChannelTypeOpenRouter)
+	assert.Equal(t, "openrouter", openRouter.Provider)
+	assert.Equal(t, []string{"text", "vision", "embedding"}, openRouter.Capabilities)
+
+	doubaoAudio := channelTypeMetadataByType(t, items, constant.ChannelTypeDoubaoAudio)
+	assert.Equal(t, "doubao_audio", doubaoAudio.Provider)
+	assert.Equal(t, []string{"audio"}, doubaoAudio.Capabilities)
+	assert.Equal(t, "https://openspeech.bytedance.com", doubaoAudio.DefaultBaseURL)
+	assert.False(t, doubaoAudio.RequiresBaseURL)
+	assert.True(t, doubaoAudio.SupportsBaseURLOverride)
+
 	comfyUI := channelTypeMetadataByType(t, items, constant.ChannelTypeComfyUI)
 	assert.Equal(t, "comfyui", comfyUI.Provider)
 	assert.Equal(t, []string{"video"}, comfyUI.Capabilities)
