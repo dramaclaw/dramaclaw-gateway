@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 func TestApplyParamOverrideTrimPrefix(t *testing.T) {
@@ -1125,6 +1126,16 @@ func TestApplyParamOverrideReturnError(t *testing.T) {
 	if !returnErr.SkipRetry {
 		t.Fatalf("expected skip_retry true")
 	}
+}
+
+func TestCompareEqualDifferentJSONTypesDoesNotMatch(t *testing.T) {
+	jsonObject := gjson.Parse(`{"enabled":true}`)
+	booleanFalse := gjson.Parse(`false`)
+
+	matched, err := compareEqual(jsonObject, booleanFalse)
+
+	require.NoError(t, err)
+	require.False(t, matched)
 }
 
 func TestApplyParamOverridePruneObjectsByTypeString(t *testing.T) {

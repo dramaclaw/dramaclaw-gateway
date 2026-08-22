@@ -677,9 +677,11 @@ func compareEqual(jsonValue, targetValue gjson.Result) (bool, error) {
 		return jsonValue.Bool() == targetValue.Bool(), nil
 	}
 
-	// 如果类型不同，报错
+	// Equality conditions are predicates. A different JSON type is simply not
+	// equal; treating it as malformed aborts the whole relay before another OR
+	// condition can match (for example Codex's reasoning object versus false).
 	if jsonValue.Type != targetValue.Type {
-		return false, fmt.Errorf("compare for different types, got %v and %v", jsonValue.Type, targetValue.Type)
+		return false, nil
 	}
 
 	switch jsonValue.Type {
