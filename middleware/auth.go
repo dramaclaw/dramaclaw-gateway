@@ -388,6 +388,7 @@ func TokenAuth() func(c *gin.Context) {
 				c.Request.Header.Set("Authorization", "Bearer "+xGoogKey)
 			}
 		}
+		applyCodexTurnAuthorization(c.Request.Header)
 		key := c.Request.Header.Get("Authorization")
 		parts := make([]string, 0)
 		if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
