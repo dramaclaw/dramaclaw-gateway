@@ -21,6 +21,8 @@ make new-adapter PROVIDER=example TYPE=64 MODE=task CAPABILITIES=video
 视频请求在 `relay/common.ValidateDCMediaTaskRequest` 中完成规范化、互斥校验和形态
 推断。适配器必须继续保留素材角色：顶层 `image` 是首帧，
 `metadata.reference_images` 始终是参考图，不能把第一张参考图提升为首帧。
+`metadata.reference_file` 与 `metadata.reference_link` 是互斥的单值 URL，属于全能参考形态；
+不支持该能力的适配器必须明确拒绝，不能忽略后继续提交。
 
 独立音频生成继续使用 OpenAI 兼容的 `/v1/audio/speech` 和 `dto.AudioRequest`。
 `relay/common.NormalizeDCMediaAudioRequest` 负责应用 DC-Media Audio Profile，识别基础
@@ -84,7 +86,8 @@ TTS、参考音频合成和音乐生成。不得为音频 Profile 新增平行�
 
 - 文生视频和单图请求；
 - 首帧与参考图角色不混用；
-- 支持的多图、视频和音频组合；
+- 支持的多图、视频、音频、文件和网页组合；
+- 参考文件与网页链接互斥，且不能与首帧/尾帧形态混用；
 - 不支持组合在发上游前失败；
 - 公共任务 ID 不泄漏供应商任务 ID；
 - 状态、结果 URL 和错误映射；

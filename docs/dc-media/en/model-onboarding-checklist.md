@@ -4,7 +4,7 @@
 
 - [ ] DramaClaw uses a stable `gateway_model`, and channel mappings do not change the client-facing model name.
 - [ ] Supported generation modes, aspect ratios, resolutions, and minimum and maximum durations are declared.
-- [ ] Limits for image, video, and audio reference inputs are declared.
+- [ ] Limits for image, video, audio, file, and web-link references and allowed file types are declared.
 - [ ] DramaClaw sends only `DC-Media-Protocol` fields and no provider-specific parameters.
 
 ## Protocol and Conversion
@@ -15,6 +15,7 @@
 - [ ] Multiple reference images are neither truncated nor ignored.
 - [ ] First/last frames are not mixed with reference media.
 - [ ] Video or audio references select the all-reference request shape.
+- [ ] A reference file or web link selects all-reference, and file and link are never sent together.
 - [ ] `duration=auto`, `ratio=auto`, and a reference video are handled as video editing.
 - [ ] Explicit `false`, `0`, `watermark`, and `generate_audio` values are not lost through `omitempty`.
 - [ ] Unsupported combinations return a stable error before the upstream request.

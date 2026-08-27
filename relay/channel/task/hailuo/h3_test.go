@@ -132,6 +132,31 @@ func TestH3VideoRequestRejectsUnsupportedVideoEdit(t *testing.T) {
 	assert.Contains(t, err.Error(), "does not support video editing")
 }
 
+func TestH3VideoRequestRejectsReferenceFileAndLink(t *testing.T) {
+	tests := []struct {
+		name     string
+		metadata map[string]any
+		field    string
+	}{
+		{name: "file", metadata: map[string]any{"reference_file": "https://example.com/brief.pdf"}, field: "metadata.reference_file"},
+		{name: "link", metadata: map[string]any{"reference_link": "https://example.com/article"}, field: "metadata.reference_link"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := h3VideoRequestFromTask(relaycommon.TaskSubmitReq{
+				Prompt:   "Use the reference",
+				Duration: 5,
+				Metadata: test.metadata,
+			})
+
+			var parameterErr *requestParameterError
+			require.ErrorAs(t, err, &parameterErr)
+			assert.Equal(t, test.field, parameterErr.field)
+		})
+	}
+}
+
 func TestH3VideoRequestRejectsExplicitTopLevelImages(t *testing.T) {
 	var req relaycommon.TaskSubmitReq
 	require.NoError(t, req.UnmarshalJSON([]byte(`{
