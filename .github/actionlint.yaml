@@ -1,0 +1,4 @@
+self-hosted-runner:
+  labels:
+    - dramaclaw-gateway-ci
+    - dramaclaw-gateway-build
