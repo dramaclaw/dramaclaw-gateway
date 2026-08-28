@@ -205,8 +205,9 @@ editing.
 `reference_file` and `reference_link` are single URL strings and cannot be used
 together. They may accompany reference images, videos, or audio, but cannot be
 mixed with first- or last-frame inputs. Either field selects the
-`all_reference` call shape. DC-Media does not embed raw file bytes in a video
-request; clients must provide a provider-accessible URL.
+fixed-duration `all_reference` call shape and cannot be combined with
+`duration="auto"`. DC-Media does not embed raw file bytes in a video request;
+clients must provide a provider-accessible URL.
 
 ### Video Edit
 

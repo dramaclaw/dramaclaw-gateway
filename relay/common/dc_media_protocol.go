@@ -147,6 +147,13 @@ func ValidateDCMediaTaskRequest(req *TaskSubmitReq) (DCMediaCallShape, error) {
 		return "", dcMediaError("inconsistent_dimensions", "width,height,metadata.ratio", "width and height do not match metadata.ratio")
 	}
 	if req.DurationAuto {
+		if hasFile || hasLink {
+			return "", dcMediaError(
+				"conflicting_media_inputs",
+				"duration,metadata.reference_file,metadata.reference_link",
+				"duration=auto video editing cannot be combined with a reference file or link",
+			)
+		}
 		if !strings.EqualFold(metadata.Ratio, "auto") || !hasVideos {
 			return "", dcMediaError("invalid_auto_duration", "duration", "duration=auto requires ratio=auto and at least one reference video")
 		}

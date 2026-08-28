@@ -218,27 +218,28 @@ The model catalog uses these canonical business-mode names:
 | `first_frame` | Use one image as the strict first frame |
 | `first_last_frame` | Use a first frame, last frame, or both |
 | `image_reference` | Use one or more images as style, identity, or content references |
-| `all_reference` | Use multimodal image, video, and audio references |
+| `all_reference` | Use multimodal image, video, audio, file, or web references |
 | `video_edit` | Edit a source video |
 
 Modes are internal DramaClaw business semantics and are not transmitted as a
 top-level `mode` field. They map to public fields as follows:
 
-| Mode | Top-level `image` | `last_frame_image` | `reference_images` | `reference_videos` | `reference_audios` | Ratio | Duration |
-|---|---|---|---|---|---|---|---|
-| `text_to_video` | omitted | omitted | omitted | omitted | omitted | fixed or catalog value | fixed |
-| `image_to_video` | omitted | omitted | exactly 1 | omitted | omitted | fixed or catalog value | fixed |
-| `first_frame` | first frame | omitted | omitted | omitted | omitted | `auto` | fixed |
-| `first_last_frame` | optional first frame | optional last frame | omitted | omitted | omitted | `auto` | fixed |
-| `image_reference` | omitted | omitted | 1 or more | omitted | omitted | fixed or catalog value | fixed |
-| `all_reference` | omitted | omitted | optional | optional | optional | fixed or catalog value | fixed |
-| `video_edit` | omitted | omitted | optional | source and allowed references | optional | `auto` | `auto` |
+| Mode | Top-level `image` | `last_frame_image` | `reference_images` | `reference_videos` | `reference_audios` | `reference_file/link` | Ratio | Duration |
+|---|---|---|---|---|---|---|---|---|
+| `text_to_video` | omitted | omitted | omitted | omitted | omitted | omitted | fixed or catalog value | fixed |
+| `image_to_video` | omitted | omitted | exactly 1 | omitted | omitted | omitted | fixed or catalog value | fixed |
+| `first_frame` | first frame | omitted | omitted | omitted | omitted | omitted | `auto` | fixed |
+| `first_last_frame` | optional first frame | optional last frame | omitted | omitted | omitted | omitted | `auto` | fixed |
+| `image_reference` | omitted | omitted | 1 or more | omitted | omitted | omitted | fixed or catalog value | fixed |
+| `all_reference` | omitted | omitted | optional | optional | optional | optional, mutually exclusive | fixed or catalog value | fixed |
+| `video_edit` | omitted | omitted | optional | source and allowed references | optional | omitted | `auto` | `auto` |
 
 Reference fields in this table live under `metadata`. Exactly one reference
 image normalizes to image-to-video. Multiple images without video or audio
-normalize to image reference. Any reference video or audio with fixed duration
-normalizes to all reference. A provider that cannot support the inferred shape
-MUST return an explicit unsupported error instead of dropping extra media.
+normalize to image reference. Any reference video, audio, file, or link with
+fixed duration normalizes to all reference. A provider that cannot support the
+inferred shape MUST return an explicit unsupported error instead of dropping
+extra media.
 
 ### 7.2 Gateway Call-Shape Inference
 
@@ -249,10 +250,14 @@ MUST return an explicit unsupported error instead of dropping extra media.
 | `metadata.reference_images` | content, identity, or style references |
 | `metadata.reference_videos` | reference video or video-edit source |
 | `metadata.reference_audios` | reference audio |
+| `metadata.reference_file` | one reference document or file URL |
+| `metadata.reference_link` | one public web page URL |
 
 The first reference image must never be promoted to a first frame. Top-level
 `image` and `reference_images` are mutually exclusive. A last frame cannot be
-combined with reference image, video, or audio fields.
+combined with reference image, video, audio, file, or link fields. A top-level
+first frame cannot be combined with a reference file or link. `reference_file`
+and `reference_link` are mutually exclusive.
 
 DramaClaw model modes map to public fields, but mode names are not transmitted.
 The gateway validates mutual exclusion and derives a call shape in this order:
@@ -261,14 +266,15 @@ The gateway validates mutual exclusion and derives a call shape in this order:
    video edit;
 2. a last frame, optionally with a first frame: first/last-frame video;
 3. a top-level image: first-frame video;
-4. reference video or audio: multimodal reference;
+4. reference video, audio, file, or link: multimodal reference;
 5. more than one reference image: image reference;
 6. exactly one reference image: image-to-video;
 7. no media input: text-to-video.
 
 The derived shape chooses a provider endpoint, workflow, or payload. It does not
-recover the original DramaClaw UI mode. If the provider does not support the
-shape, reject the request instead of dropping media or degrading modes.
+recover the original DramaClaw UI mode. Automatic-duration video editing cannot
+include a reference file or link. If the provider does not support the shape,
+reject the request instead of dropping media or degrading modes.
 
 ### 7.3 First Frame
 
@@ -323,7 +329,29 @@ This shape uses `ratio=auto` and sends no fixed width or height.
 A fixed-duration request with reference video is multimodal reference, not video
 editing.
 
-### 7.6 Video Edit
+### 7.6 Reference File or Link
+
+```json
+{
+  "model": "example-video-model",
+  "prompt": "create a product introduction from the document",
+  "duration": 8,
+  "metadata": {
+    "ratio": "16:9",
+    "resolution": "720p",
+    "reference_file": "https://example.invalid/product.pdf"
+  }
+}
+```
+
+`reference_file` and `reference_link` are single URL strings and cannot be used
+together. They may accompany reference images, videos, or audio, but cannot be
+mixed with first- or last-frame inputs. Either field selects the fixed-duration
+`all_reference` call shape and cannot be combined with `duration="auto"`.
+DC-Media does not embed raw file bytes in a video request; clients must provide
+a provider-accessible URL.
+
+### 7.7 Video Edit
 
 ```json
 {
@@ -504,6 +532,9 @@ unlimited.
     "referenceImageMax": 2,
     "referenceVideoMax": 0,
     "referenceAudioMax": 0,
+    "referenceFileMax": 1,
+    "referenceLinkMax": 1,
+    "referenceFileTypes": ["pdf", "docx", "xlsx", "pptx", "txt", "md"],
     "supportsGenerateAudio": true,
     "humanReview": true
   }
@@ -529,6 +560,9 @@ The catalog MAY declare:
 - `referenceImageMax`
 - `referenceVideoMax`
 - `referenceAudioMax`
+- `referenceFileMax`
+- `referenceLinkMax`
+- `referenceFileTypes`
 - `referenceAudioMinSeconds`
 - `referenceAudioMaxSeconds`
 - `referenceAudioTotalMinSeconds`
@@ -538,9 +572,12 @@ The catalog MAY declare:
 - `referenceVideoTotalMinSeconds`
 - `referenceVideoTotalMaxSeconds`
 
-Per-item and total limits are validated separately. An omitted catalog limit
-means DramaClaw adds no catalog restriction; it does not mean the provider has
-no limit.
+Per-item and total limits are validated separately. `referenceFileMax` and
+`referenceLinkMax` currently have a protocol maximum of one; a positive value
+enables the corresponding client input and zero means unsupported.
+`referenceFileTypes` contains lowercase extensions without a leading dot. An
+omitted limit means DramaClaw adds no catalog restriction; it does not mean the
+provider has no limit.
 
 ### 11.2 Declarative Model Parameters
 
@@ -643,14 +680,15 @@ At minimum, a new image or video model requires:
 1. Create a stable `catalog_id` and configure the media type and
    `gateway_model`.
 2. Declare every supported mode without inferring capability from model names.
-3. Configure resolutions, ratios, durations, and media limits.
+3. Configure resolutions, ratios, durations, reference file types, and media limits.
 4. Expose model-specific options only through declarative parameters.
 5. Implement provider adaptation in the gateway, not as a provider branch in
    DramaClaw.
 6. Verify fixed ratios preserve ratio, resolution, and matching dimensions.
 7. Verify automatic ratios omit dimensions and automatic duration emits only
    `duration: "auto"`.
-8. Verify first frame, last frame, and reference media use the correct fields.
+8. Verify first frame, last frame, image/video/audio references, reference files,
+   and web links use the correct fields.
 9. Align frontend feedback, backend validation, and gateway constraints.
 10. Verify quotation and execution use the same model and normalized values.
 11. Add request-contract coverage for every supported mode and rejection tests
@@ -665,13 +703,15 @@ An implementation must cover:
 - fixed and automatic image ratios;
 - text video, one reference image, strict first frame, first/last frame, image
   reference, all reference, and video edit;
-- call-shape inference for one image, multiple images, video/audio references,
-  and automatic-duration video edit;
+- call-shape inference for one image, multiple images, video/audio/file/link
+  references, and automatic-duration video edit;
 - normalization from `adaptive` to `auto` and resolution-case normalization;
 - fixed-ratio/dimension consistency and automatic-ratio mutual exclusion;
 - fixed and automatic durations;
 - explicit `true`, explicit `false`, and omission for optional booleans;
 - catalog mode rejection and media count/duration boundaries;
+- mutual exclusion for reference files and links and their exclusion from
+  first-frame, last-frame, and automatic-duration video-edit shapes;
 - legacy input producing canonical output only;
 - quotation parameters consistent with execution parameters;
 - public/upstream task ID separation;

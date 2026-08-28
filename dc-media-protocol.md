@@ -380,7 +380,7 @@ adaptive → auto
 | `first_last_frame` | 有首帧时发送 | 有尾帧时发送 | 不发送 | 不发送 | 不发送 | 不发送 | `auto` | 固定 |
 | `image_reference` | 不发送 | 不发送 | 1 张或多张 | 不发送 | 不发送 | 不发送 | 固定或目录允许的值 | 固定 |
 | `all_reference` | 不发送 | 不发送 | 可选 | 可选 | 可选 | 可选且二选一 | 固定或目录允许的值 | 固定 |
-| `video_edit` | 不发送 | 不发送 | 可选 | 源视频及允许的参考视频 | 可选 | 可选且二选一 | `auto` | `auto` |
+| `video_edit` | 不发送 | 不发送 | 可选 | 源视频及允许的参考视频 | 可选 | 不发送 | `auto` | `auto` |
 
 说明：
 
@@ -416,6 +416,7 @@ adaptive → auto
 - `last_frame_image` 不得与 `reference_images`、`reference_videos`、`reference_audios`、`reference_file` 或 `reference_link` 混用。
 - `reference_file` 与 `reference_link` 互斥，同一请求最多出现其中一个。
 - `duration = "auto"` 但没有参考视频时属于无效请求，不能据此推断视频编辑。
+- `duration = "auto"` 的视频编辑不得携带 `reference_file` 或 `reference_link`；文件和网页参考属于固定时长的 `all_reference` 形态。
 - 供应商不支持推断出的调用形态时，应返回稳定的不支持错误，不得降级后忽略素材。
 
 ### 7.3 首帧
@@ -500,7 +501,7 @@ adaptive → auto
 - 两个字段互斥，每个请求最多使用其中一个。
 - 文件 URL 应指向模型目录允许的文件类型；网页 URL 必须是供应商可以访问的公开页面。
 - 文件或链接可以与参考图片、视频、音频组合，但不能与首帧或尾帧模式混用。
-- 任一字段存在时，网关按 `all_reference` 形态处理；供应商不支持时必须明确拒绝，不得静默忽略。
+- 任一字段存在时，网关按固定时长的 `all_reference` 形态处理，不得与 `duration = "auto"` 混用；供应商不支持时必须明确拒绝，不得静默忽略。
 
 ### 7.7 视频编辑
 

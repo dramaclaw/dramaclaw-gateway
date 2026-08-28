@@ -67,6 +67,8 @@ func TestValidateDCMediaTaskRequestRejectsAmbiguousCombinations(t *testing.T) {
 		{name: "last frame and references", req: TaskSubmitReq{Metadata: map[string]interface{}{"last_frame_image": "last.png", "reference_videos": []string{"ref.mp4"}}}},
 		{name: "auto ratio and dimensions", req: TaskSubmitReq{Width: 1280, Height: 720, Metadata: map[string]interface{}{"ratio": "auto"}}},
 		{name: "auto duration without video", req: TaskSubmitReq{DurationAuto: true, DurationSet: true, Metadata: map[string]interface{}{"ratio": "auto", "reference_images": []string{"ref.png"}}}},
+		{name: "video edit with file", req: TaskSubmitReq{DurationAuto: true, DurationSet: true, Metadata: map[string]interface{}{"ratio": "auto", "reference_videos": []string{"ref.mp4"}, "reference_file": "brief.pdf"}}},
+		{name: "video edit with link", req: TaskSubmitReq{DurationAuto: true, DurationSet: true, Metadata: map[string]interface{}{"ratio": "auto", "reference_videos": []string{"ref.mp4"}, "reference_link": "https://example.com/article"}}},
 		{name: "file and link", req: TaskSubmitReq{Metadata: map[string]interface{}{"reference_file": "brief.pdf", "reference_link": "https://example.com/article"}}},
 		{name: "first frame and file", req: TaskSubmitReq{Image: "first.png", Metadata: map[string]interface{}{"reference_file": "brief.pdf"}}},
 		{name: "last frame and link", req: TaskSubmitReq{Metadata: map[string]interface{}{"last_frame_image": "last.png", "reference_link": "https://example.com/article"}}},

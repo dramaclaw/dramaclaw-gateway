@@ -17,6 +17,7 @@
 - [ ] Video or audio references select the all-reference request shape.
 - [ ] A reference file or web link selects all-reference, and file and link are never sent together.
 - [ ] `duration=auto`, `ratio=auto`, and a reference video are handled as video editing.
+- [ ] `duration=auto` video editing does not include a reference file or web link.
 - [ ] Explicit `false`, `0`, `watermark`, and `generate_audio` values are not lost through `omitempty`.
 - [ ] Unsupported combinations return a stable error before the upstream request.
 
