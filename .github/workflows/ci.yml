@@ -76,6 +76,13 @@ jobs:
           repository: ${{ github.event.pull_request.base.repo.full_name }}
           ref: ${{ github.event.action == 'closed' && github.event.pull_request.base.ref || github.ref }}
 
+      # The typecheck launcher needs Node.js even though tests run with Bun.
+      - name: Set up Node.js for frontend tooling
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
