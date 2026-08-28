@@ -109,10 +109,14 @@ Video uses `POST /video/generations`.
 | `metadata.reference_images` | content, identity, or style references |
 | `metadata.reference_videos` | reference video or video-edit source |
 | `metadata.reference_audios` | reference audio |
+| `metadata.reference_file` | one reference document or file URL |
+| `metadata.reference_link` | one public web page URL |
 
 The first reference image must never be promoted to a first frame. Top-level
 `image` and `reference_images` are mutually exclusive. A last frame cannot be
-combined with reference image, video, or audio fields.
+combined with reference image, video, audio, file, or link fields. A top-level
+first frame cannot be combined with a reference file or link. `reference_file`
+and `reference_link` are mutually exclusive.
 
 DramaClaw model modes map to public fields, but mode names are not transmitted.
 The gateway validates mutual exclusion and derives a call shape in this order:
@@ -121,7 +125,7 @@ The gateway validates mutual exclusion and derives a call shape in this order:
    video edit;
 2. a last frame, optionally with a first frame: first/last-frame video;
 3. a top-level image: first-frame video;
-4. reference video or audio: multimodal reference;
+4. reference video, audio, file, or link: multimodal reference;
 5. more than one reference image: image reference;
 6. exactly one reference image: image-to-video;
 7. no media input: text-to-video.
@@ -182,6 +186,28 @@ This shape uses `ratio=auto` and sends no fixed width or height.
 
 A fixed-duration request with reference video is multimodal reference, not video
 editing.
+
+### Reference File or Link
+
+```json
+{
+  "model": "example-video-model",
+  "prompt": "create a product introduction from the document",
+  "duration": 8,
+  "metadata": {
+    "ratio": "16:9",
+    "resolution": "720p",
+    "reference_file": "https://example.invalid/product.pdf"
+  }
+}
+```
+
+`reference_file` and `reference_link` are single URL strings and cannot be used
+together. They may accompany reference images, videos, or audio, but cannot be
+mixed with first- or last-frame inputs. Either field selects the
+fixed-duration `all_reference` call shape and cannot be combined with
+`duration="auto"`. DC-Media does not embed raw file bytes in a video request;
+clients must provide a provider-accessible URL.
 
 ### Video Edit
 
@@ -284,6 +310,11 @@ duration bounds, and reference-media counts. The gateway adapter still enforces
 provider limits. An omitted catalog limit does not mean the provider is
 unlimited.
 
+Models that expose file or web references declare `referenceFileMax`,
+`referenceLinkMax`, and optional lowercase `referenceFileTypes`. The current
+protocol allows at most one file or one link, and a positive maximum enables the
+corresponding client input.
+
 Model labels are display text. Stable catalog IDs and gateway model names drive
 selection and execution. Adapters should use the configured upstream model
 mapping rather than a mutable display label.
@@ -306,7 +337,7 @@ An implementation must cover:
 - text image generation and multi-image editing;
 - fixed and automatic ratios;
 - text video, one reference image, strict first frame, and first/last frame;
-- multiple reference images and video/audio references when claimed;
+- multiple reference images and video/audio/file/link references when claimed;
 - automatic-duration video editing;
 - mutual exclusion and unsupported combinations;
 - preservation of explicit booleans and zero values;

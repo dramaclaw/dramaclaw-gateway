@@ -363,7 +363,7 @@ adaptive → auto
 | `first_frame` | 单张图片严格作为视频首帧 |
 | `first_last_frame` | 首帧、尾帧或首尾帧组合 |
 | `image_reference` | 一张或多张图片作为风格、角色或内容参考 |
-| `all_reference` | 图片、视频、音频的多模态参考 |
+| `all_reference` | 图片、视频、音频、文件或网页的多模态参考 |
 | `video_edit` | 以源视频为基础进行编辑 |
 
 模式是 DramaClaw 内部的业务语义，用于决定界面、模型目录校验、素材角色和最终公共字段。模式本身不属于当前线上请求协议；进入网关后，单图、多图和全能参考允许按素材组合归一化为供应商可支持的调用形态。
@@ -372,15 +372,15 @@ adaptive → auto
 
 ### 7.1 模式与字段映射
 
-| 模式 | 顶层 `image` | `last_frame_image` | `reference_images` | `reference_videos` | `reference_audios` | 比例 | 时长 |
-|---|---|---|---|---|---|---|---|
-| `text_to_video` | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | 固定或目录允许的值 | 固定 |
-| `image_to_video` | 不发送 | 不发送 | 恰好 1 张 | 不发送 | 不发送 | 固定或目录允许的值 | 固定 |
-| `first_frame` | 首帧 | 不发送 | 不发送 | 不发送 | 不发送 | `auto` | 固定 |
-| `first_last_frame` | 有首帧时发送 | 有尾帧时发送 | 不发送 | 不发送 | 不发送 | `auto` | 固定 |
-| `image_reference` | 不发送 | 不发送 | 1 张或多张 | 不发送 | 不发送 | 固定或目录允许的值 | 固定 |
-| `all_reference` | 不发送 | 不发送 | 可选 | 可选 | 可选 | 固定或目录允许的值 | 固定 |
-| `video_edit` | 不发送 | 不发送 | 可选 | 源视频及允许的参考视频 | 可选 | `auto` | `auto` |
+| 模式 | 顶层 `image` | `last_frame_image` | `reference_images` | `reference_videos` | `reference_audios` | `reference_file/link` | 比例 | 时长 |
+|---|---|---|---|---|---|---|---|---|
+| `text_to_video` | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | 固定或目录允许的值 | 固定 |
+| `image_to_video` | 不发送 | 不发送 | 恰好 1 张 | 不发送 | 不发送 | 不发送 | 固定或目录允许的值 | 固定 |
+| `first_frame` | 首帧 | 不发送 | 不发送 | 不发送 | 不发送 | 不发送 | `auto` | 固定 |
+| `first_last_frame` | 有首帧时发送 | 有尾帧时发送 | 不发送 | 不发送 | 不发送 | 不发送 | `auto` | 固定 |
+| `image_reference` | 不发送 | 不发送 | 1 张或多张 | 不发送 | 不发送 | 不发送 | 固定或目录允许的值 | 固定 |
+| `all_reference` | 不发送 | 不发送 | 可选 | 可选 | 可选 | 可选且二选一 | 固定或目录允许的值 | 固定 |
+| `video_edit` | 不发送 | 不发送 | 可选 | 源视频及允许的参考视频 | 可选 | 不发送 | `auto` | `auto` |
 
 说明：
 
@@ -388,7 +388,7 @@ adaptive → auto
 - `image_to_video`、`image_reference` 和 `all_reference` 是不同的 DramaClaw 业务模式，但在线协议允许它们归一化为相同或相近的素材结构。
 - 只有一张 `reference_images` 时，网关统一按图生视频调用形态处理；即使该请求源自图片参考或全能参考模式，也不要求网关保留模式名称。
 - 有多张 `reference_images` 且没有视频或音频时，网关按图片参考调用形态处理；供应商只支持单图时必须返回明确的不支持错误，不得静默丢弃多余图片。
-- 一旦存在 `reference_videos` 或 `reference_audios`，固定时长请求按全能参考调用形态处理。
+- 一旦存在 `reference_videos`、`reference_audios`、`reference_file` 或 `reference_link`，固定时长请求按全能参考调用形态处理。
 - `first_last_frame` 至少需要一个关键帧；只有尾帧时不得把尾帧自动提升为首帧。
 - 参考图片的第一张不得自动作为首帧。
 - `video_edit` 的源视频仍通过 `metadata.reference_videos` 传递，业务模式决定它是编辑源而不是普通参考视频。
@@ -402,7 +402,7 @@ adaptive → auto
 | 1 | `duration = "auto"`、`metadata.ratio = "auto"` 且存在 `reference_videos` | 视频编辑 |
 | 2 | 存在 `last_frame_image`，可同时存在顶层 `image` | 首尾帧或尾帧视频 |
 | 3 | 存在顶层 `image` | 首帧视频 |
-| 4 | 存在 `reference_videos` 或 `reference_audios` | 全能参考 |
+| 4 | 存在 `reference_videos`、`reference_audios`、`reference_file` 或 `reference_link` | 全能参考 |
 | 5 | `reference_images` 数量大于 1 | 图片参考 |
 | 6 | `reference_images` 数量等于 1 | 图生视频 |
 | 7 | 不存在任何输入素材 | 文生视频 |
@@ -412,8 +412,11 @@ adaptive → auto
 - 推断结果只用于选择供应商端点、Workflow 或请求结构，不用于恢复 DramaClaw 原始界面模式。
 - 素材数组中的空字符串不计入数量；重复素材是否允许由模型目录和供应商约束决定，不得通过静默去重绕过数量限制。
 - 顶层 `image` 与 `reference_images` 不得同时出现。首帧和参考图片具有不同语义，网关不得通过取第一张图片解决冲突。
-- `last_frame_image` 不得与 `reference_images`、`reference_videos` 或 `reference_audios` 混用。
+- 顶层 `image` 不得与 `reference_file` 或 `reference_link` 混用。
+- `last_frame_image` 不得与 `reference_images`、`reference_videos`、`reference_audios`、`reference_file` 或 `reference_link` 混用。
+- `reference_file` 与 `reference_link` 互斥，同一请求最多出现其中一个。
 - `duration = "auto"` 但没有参考视频时属于无效请求，不能据此推断视频编辑。
+- `duration = "auto"` 的视频编辑不得携带 `reference_file` 或 `reference_link`；文件和网页参考属于固定时长的 `all_reference` 形态。
 - 供应商不支持推断出的调用形态时，应返回稳定的不支持错误，不得降级后忽略素材。
 
 ### 7.3 首帧
@@ -475,7 +478,32 @@ adaptive → auto
 
 全能参考不是视频编辑。包含参考视频且使用固定 `duration` 时，网关必须按全能参考处理；只有同时满足 `duration = "auto"`、`ratio = "auto"` 和存在参考视频时，才能识别为视频编辑。
 
-### 7.6 视频编辑
+### 7.6 参考文件与网页链接
+
+参考文件和公开网页链接使用单值 URL 字段：
+
+```json
+{
+  "model": "example-video-model",
+  "prompt": "根据产品说明生成一段介绍视频",
+  "duration": 8,
+  "metadata": {
+    "ratio": "16:9",
+    "resolution": "720p",
+    "reference_file": "https://example.invalid/product.pdf"
+  }
+}
+```
+
+约束：
+
+- `reference_file` 和 `reference_link` 均为字符串 URL，不在 DC-Media 请求中直接传文件二进制。
+- 两个字段互斥，每个请求最多使用其中一个。
+- 文件 URL 应指向模型目录允许的文件类型；网页 URL 必须是供应商可以访问的公开页面。
+- 文件或链接可以与参考图片、视频、音频组合，但不能与首帧或尾帧模式混用。
+- 任一字段存在时，网关按固定时长的 `all_reference` 形态处理，不得与 `duration = "auto"` 混用；供应商不支持时必须明确拒绝，不得静默忽略。
+
+### 7.7 视频编辑
 
 ```json
 {
@@ -824,6 +852,9 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
     "referenceImageMax": 2,
     "referenceVideoMax": 0,
     "referenceAudioMax": 0,
+    "referenceFileMax": 1,
+    "referenceLinkMax": 1,
+    "referenceFileTypes": ["pdf", "docx", "xlsx", "pptx", "txt", "md"],
     "supportsGenerateAudio": true,
     "humanReview": true
   }
@@ -846,6 +877,9 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 - `referenceImageMax`
 - `referenceVideoMax`
 - `referenceAudioMax`
+- `referenceFileMax`
+- `referenceLinkMax`
+- `referenceFileTypes`
 - `referenceAudioMinSeconds`
 - `referenceAudioMaxSeconds`
 - `referenceAudioTotalMinSeconds`
@@ -855,7 +889,7 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 - `referenceVideoTotalMinSeconds`
 - `referenceVideoTotalMaxSeconds`
 
-单条限制和合计限制应分别校验。留空表示 DramaClaw 不增加目录限制，不代表供应商没有限制；网关仍应执行供应商最终约束。
+单条限制和合计限制应分别校验。`referenceFileMax` 和 `referenceLinkMax` 当前最大为 1；正值表示模型目录允许展示对应入口，`0` 表示不支持。`referenceFileTypes` 使用不带点的小写扩展名。其他限制留空表示 DramaClaw 不增加目录限制，不代表供应商没有限制；网关仍应执行供应商最终约束。
 
 ### 12.2 声明式专用参数
 
@@ -995,13 +1029,13 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 1. 在模型目录创建稳定 `catalog_id`。
 2. 配置正确的 `gateway_model` 和媒体类型。
 3. 声明全部支持模式，不从模型名称猜测能力。
-4. 配置分辨率、比例、输出时长及素材限制。
+4. 配置分辨率、比例、输出时长、参考文件类型及素材限制。
 5. 仅通过声明式参数开放模型专用选项。
 6. 在网关实现供应商适配，不在 DramaClaw 增加供应商专属请求分支。
 7. 验证固定比例请求同时保留 `ratio`、`resolution` 和匹配的宽高。
 8. 验证自动比例请求不包含 `width`、`height`。
 9. 验证自动时长仅发送 `duration: "auto"`。
-10. 验证首帧、尾帧和参考素材进入正确字段。
+10. 验证首帧、尾帧、图片/视频/音频参考以及参考文件/网页进入正确字段。
 11. 验证素材数量和时长在前端提示、后端校验和网关约束三层一致。
 12. 验证报价、预扣和执行使用同一个模型及同一组规范化参数。
 13. 为每个支持模式或音频请求形态增加至少一条请求契约测试。
@@ -1017,7 +1051,7 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 - 图片固定比例与自动比例；
 - 图片单图编辑和多图参考；
 - 视频文生、图生、首帧、首尾帧、图片参考、全能参考和视频编辑；
-- 单张参考图、多张参考图、视频/音频参考及自动时长视频编辑的调用形态推断；
+- 单张参考图、多张参考图、视频/音频/文件/网页参考及自动时长视频编辑的调用形态推断；
 - 单图图片参考和单图全能参考归一化为图生视频；
 - `auto` 与 `adaptive` 的兼容归一化；
 - 大小写分辨率归一化；
@@ -1027,6 +1061,7 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 - 可选布尔参数显式 `true`、显式 `false` 和省略三种情况；
 - 模型目录不支持模式时的拒绝；
 - 素材数量与时长边界；
+- 参考文件与网页链接互斥，且不能与首帧/尾帧形态混用；
 - 旧字段进入后最终只产生规范字段；
 - 报价参数与执行请求参数一致；
 - 视频提交与查询只返回规范任务状态；

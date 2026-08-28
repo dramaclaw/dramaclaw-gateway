@@ -25,6 +25,9 @@ classified by `relay/common.ValidateDCMediaTaskRequest`. Adapters must preserve
 media roles: the top-level `image` is the first frame, while
 `metadata.reference_images` always contains reference images. Never promote the
 first reference image to the first frame.
+`metadata.reference_file` and `metadata.reference_link` are mutually exclusive
+single URL values in the all-reference shape. Adapters that do not support them
+must reject the request instead of silently dropping either field.
 
 Standalone audio generation continues to use the OpenAI-compatible
 `/v1/audio/speech` endpoint and `dto.AudioRequest`.
@@ -101,7 +104,10 @@ Each adapter must cover at least:
 
 - text-to-video and single-image requests;
 - separation of first-frame and reference-image roles;
-- supported combinations of multiple images, videos, and audio files;
+- supported combinations of multiple images, videos, audio, reference files,
+  and web links;
+- mutual exclusion of reference files and web links, and their incompatibility
+  with first-frame and last-frame shapes;
 - rejection of unsupported combinations before an upstream request;
 - prevention of provider task ID exposure through public task IDs;
 - state, result URL, and error mapping;
