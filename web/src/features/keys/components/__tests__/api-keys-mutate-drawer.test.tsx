@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { afterAll as after, afterEach, describe, test } from 'bun:test'
 import assert from 'node:assert/strict'
-import { after, afterEach, describe, test } from 'node:test'
 
 import { Window } from 'happy-dom'
 

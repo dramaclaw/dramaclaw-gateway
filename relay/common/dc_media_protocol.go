@@ -27,6 +27,8 @@ type DCMediaMetadata struct {
 	ReferenceImages []string `json:"reference_images,omitempty"`
 	ReferenceVideos []string `json:"reference_videos,omitempty"`
 	ReferenceAudios []string `json:"reference_audios,omitempty"`
+	ReferenceFile   string   `json:"reference_file,omitempty"`
+	ReferenceLink   string   `json:"reference_link,omitempty"`
 	GenerateAudio   *bool    `json:"generate_audio,omitempty"`
 	HumanReview     *bool    `json:"human_review,omitempty"`
 	Watermark       *bool    `json:"watermark,omitempty"`
@@ -77,7 +79,7 @@ func NormalizeDCMediaTaskRequest(req *TaskSubmitReq) error {
 	if resolution := normalizedDCMediaResolution(metadataString(req.Metadata, "resolution")); resolution != "" {
 		req.Metadata["resolution"] = resolution
 	}
-	for _, key := range []string{"last_frame_image"} {
+	for _, key := range []string{"last_frame_image", "reference_file", "reference_link"} {
 		if value := metadataString(req.Metadata, key); value != "" {
 			req.Metadata[key] = value
 		}
@@ -123,12 +125,20 @@ func ValidateDCMediaTaskRequest(req *TaskSubmitReq) (DCMediaCallShape, error) {
 	hasImages := len(nonEmptyMediaStrings(metadata.ReferenceImages)) > 0
 	hasVideos := len(nonEmptyMediaStrings(metadata.ReferenceVideos)) > 0
 	hasAudios := len(nonEmptyMediaStrings(metadata.ReferenceAudios)) > 0
+	hasFile := strings.TrimSpace(metadata.ReferenceFile) != ""
+	hasLink := strings.TrimSpace(metadata.ReferenceLink) != ""
 
 	if hasFirstFrame && hasImages {
 		return "", dcMediaError("conflicting_media_inputs", "image,metadata.reference_images", "top-level image cannot be combined with metadata.reference_images")
 	}
-	if hasLastFrame && (hasImages || hasVideos || hasAudios) {
+	if hasFirstFrame && (hasFile || hasLink) {
+		return "", dcMediaError("conflicting_media_inputs", "image,metadata.reference_file,metadata.reference_link", "top-level image cannot be combined with a reference file or link")
+	}
+	if hasLastFrame && (hasImages || hasVideos || hasAudios || hasFile || hasLink) {
 		return "", dcMediaError("conflicting_media_inputs", "metadata.last_frame_image", "last_frame_image cannot be combined with reference media")
+	}
+	if hasFile && hasLink {
+		return "", dcMediaError("conflicting_media_inputs", "metadata.reference_file,metadata.reference_link", "reference_file and reference_link cannot be used together")
 	}
 	if strings.EqualFold(metadata.Ratio, "auto") && (req.Width > 0 || req.Height > 0) {
 		return "", dcMediaError("conflicting_dimensions", "width,height,metadata.ratio", "fixed dimensions cannot be combined with auto ratio")
@@ -137,6 +147,13 @@ func ValidateDCMediaTaskRequest(req *TaskSubmitReq) (DCMediaCallShape, error) {
 		return "", dcMediaError("inconsistent_dimensions", "width,height,metadata.ratio", "width and height do not match metadata.ratio")
 	}
 	if req.DurationAuto {
+		if hasFile || hasLink {
+			return "", dcMediaError(
+				"conflicting_media_inputs",
+				"duration,metadata.reference_file,metadata.reference_link",
+				"duration=auto video editing cannot be combined with a reference file or link",
+			)
+		}
 		if !strings.EqualFold(metadata.Ratio, "auto") || !hasVideos {
 			return "", dcMediaError("invalid_auto_duration", "duration", "duration=auto requires ratio=auto and at least one reference video")
 		}
@@ -148,7 +165,7 @@ func ValidateDCMediaTaskRequest(req *TaskSubmitReq) (DCMediaCallShape, error) {
 	if hasFirstFrame {
 		return DCMediaFirstFrame, nil
 	}
-	if hasVideos || hasAudios {
+	if hasVideos || hasAudios || hasFile || hasLink {
 		return DCMediaAllReference, nil
 	}
 	if len(nonEmptyMediaStrings(metadata.ReferenceImages)) > 1 {

@@ -55,6 +55,8 @@ type h3VideoMetadata struct {
 	ReferenceImages []string `json:"reference_images,omitempty"`
 	ReferenceVideos []string `json:"reference_videos,omitempty"`
 	ReferenceAudios []string `json:"reference_audios,omitempty"`
+	ReferenceFile   string   `json:"reference_file,omitempty"`
+	ReferenceLink   string   `json:"reference_link,omitempty"`
 	LastFrameImage  string   `json:"last_frame_image,omitempty"`
 	Resolution      string   `json:"resolution,omitempty"`
 	Ratio           string   `json:"ratio,omitempty"`
@@ -120,6 +122,18 @@ func h3VideoRequestFromTask(req relaycommon.TaskSubmitReq) (*h3VideoRequest, err
 	metadata := h3VideoMetadata{}
 	if err := req.UnmarshalMetadata(&metadata); err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(metadata.ReferenceFile) != "" {
+		return nil, &requestParameterError{
+			field:   "metadata.reference_file",
+			message: "MiniMax-H3 does not support reference files",
+		}
+	}
+	if strings.TrimSpace(metadata.ReferenceLink) != "" {
+		return nil, &requestParameterError{
+			field:   "metadata.reference_link",
+			message: "MiniMax-H3 does not support reference links",
+		}
 	}
 	if len(metadata.ReferenceImages) > 9 {
 		return nil, h3MediaLimitError("metadata.reference_images", 9)
