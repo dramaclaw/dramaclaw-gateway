@@ -11,7 +11,7 @@ on:
 
 jobs:
   pr-quality:
-    runs-on: [dramaclaw-gateway-ci]
+    runs-on: ubuntu-24.04
     steps:
       - uses: peakoss/anti-slop@85daca1880e9e1af197fc06ea03349daf08f4202 # v0.2.1
         with:

@@ -21,9 +21,11 @@ jobs:
         include:
           - arch: amd64
             platform: linux/amd64
+            runner: ubuntu-24.04
           - arch: arm64
             platform: linux/arm64
-    runs-on: [dramaclaw-gateway-build]
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     outputs:
       tag: ${{ steps.version.outputs.tag }}
 
@@ -56,36 +58,12 @@ jobs:
           echo "${TAG}" > VERSION
           echo "Building tag: ${TAG} for ${{ matrix.arch }}"
 
-      - name: Enable ARM64 emulation on the x64 runner
-        if: matrix.arch == 'arm64'
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
-        with:
-          platforms: arm64
-
-      - name: Set up persistent Linux builder
+      - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
         with:
-          name: ${{ runner.name }}
-          buildkitd-flags: --allow-insecure-entitlement network.host
           driver-opts: |
             image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
-            network=host
-            memory=3g
-            memory-swap=3g
-            cpu-quota=400000
-            cpu-period=100000
-          buildkitd-config-inline: |
-            [registry."docker.io"]
-              mirrors = ["mirror.lingshan.ai"]
-            [worker.oci]
-              max-parallelism = 1
-              gc = true
-              reservedSpace = "10GB"
-              maxUsedSpace = "100GB"
-              minFreeSpace = "50GB"
-          keep-state: true
-          cache-binary: false
 
       - name: Log in to Docker Hub
         uses: docker/login-action@c99871dec2022cc055c062a10cc1a1310835ceb4 # v4.3.0
@@ -135,7 +113,7 @@ jobs:
   create_manifests:
     name: Create multi-arch manifests
     needs: [build_single_arch]
-    runs-on: [dramaclaw-gateway-build]
+    runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
 
     permissions:

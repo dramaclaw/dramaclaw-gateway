@@ -15,7 +15,7 @@ jobs:
   backend:
     name: Backend vet, build, and test
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
-    runs-on: [dramaclaw-gateway-ci]
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       GOWORK: 'off'
@@ -63,7 +63,7 @@ jobs:
   frontend:
     name: Frontend typecheck and test
     if: github.event.action != 'closed' || github.event.pull_request.merged == true
-    runs-on: [dramaclaw-gateway-ci]
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     defaults:
       run:
