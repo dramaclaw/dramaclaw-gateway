@@ -2,10 +2,9 @@ name: Build Electron App
 
 on:
   push:
+    # fork mirrors ~700 upstream tags; only -dramaclaw.N releases may trigger publishing
     tags:
-      - '*'  # Triggers on version tags like v1.0.0
-      - '!*-*'  # Ignore pre-release tags like v1.0.0-beta
-      - '!*-alpha*' # Ignore alpha tags like v1.0.0-alpha
+      - 'v*-dramaclaw.*'
   workflow_dispatch:  # Allows manual triggering
 
 jobs:

@@ -199,6 +199,7 @@ This repository is a public fork and holds registry credentials
   `workflow_dispatch` may reference those secrets;
 - a workflow triggered by `pull_request_target` must never check out the pull
   request head and must never pass secrets to steps that run pull request code;
+- a workflow triggered by `pull_request_target` must also keep its `permissions:` read-only;
 - keep third-party actions pinned to a full commit SHA.
 
 ## Licensing

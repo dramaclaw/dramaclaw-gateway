@@ -38,7 +38,6 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
 
     permissions:
-      packages: write
       contents: read
       id-token: write
 
@@ -46,7 +45,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && 0 || 1 }}
+          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && '0' || '1' }}
           ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Resolve tag & write VERSION
@@ -70,6 +69,7 @@ jobs:
           fi
           echo "TAG=${TAG}" >> "$GITHUB_ENV"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "${TAG}" > VERSION
           echo "Building tag: ${TAG} for ${{ matrix.arch }}"
 
@@ -91,6 +91,9 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.IMAGE }}
+          labels: |
+            org.opencontainers.image.version=${{ env.TAG }}
+            org.opencontainers.image.revision=${{ steps.version.outputs.sha }}
 
       - name: Build & push
         id: build

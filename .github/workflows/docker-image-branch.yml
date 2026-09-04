@@ -1,3 +1,4 @@
+# Manual branch images only. Tags are namespaced branch-<name>[-<date>-<sha>]; release tags go through docker-build.yml.
 name: Publish Docker image (manual branch)
 
 on:
@@ -31,6 +32,18 @@ jobs:
         env:
           BRANCH_NAME: ${{ inputs.branch }}
         run: |
+          set -euo pipefail
+
+          case "$BRANCH_NAME" in
+            latest|v[0-9]*|refs/tags/*)
+              echo "::error::'$BRANCH_NAME' looks like a release tag or 'latest'; branch builds must use a branch name"
+              exit 1 ;;
+          esac
+          if git ls-remote --exit-code --tags origin "refs/tags/${BRANCH_NAME}" >/dev/null 2>&1; then
+            echo "::error::'$BRANCH_NAME' is a tag; use docker-build.yml for release tags"
+            exit 1
+          fi
+
           TAG_PREFIX=$(printf '%s' "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//')
           TAG_PREFIX=${TAG_PREFIX:0:105}
           TAG_PREFIX=$(printf '%s' "$TAG_PREFIX" | sed -E 's/[.-]+$//')
@@ -38,6 +51,7 @@ jobs:
             echo "::error::Branch '$BRANCH_NAME' cannot be converted to a valid Docker tag prefix"
             exit 1
           fi
+          TAG_PREFIX="branch-${TAG_PREFIX}"
 
           SHA=$(git rev-parse HEAD)
           SHORT_SHA=$(git rev-parse --short HEAD)

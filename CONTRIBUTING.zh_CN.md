@@ -175,6 +175,7 @@ bun run build
 
 - 只有由 `v*-dramaclaw.*` tag 的 `push` 或 `workflow_dispatch` 触发的工作流可以引用这些 secrets；
 - `pull_request_target` 触发的工作流绝不能 checkout PR head，也不能把 secrets 传给运行 PR 代码的步骤；
+- `pull_request_target` 触发的工作流其 `permissions:` 必须全部为只读；
 - 第三方 action 一律钉完整 commit SHA。
 
 ## 许可证
