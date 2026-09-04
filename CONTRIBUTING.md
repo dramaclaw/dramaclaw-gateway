@@ -189,6 +189,18 @@ A provider adapter is ready to merge when:
 Maintainers may merge partial provider support when its scope is explicit, the
 unsupported paths fail safely, and the support matrix marks the remaining gaps.
 
+## CI Secrets on a Public Fork
+
+This repository is a public fork and holds registry credentials
+(`DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`) for publishing
+`claymorelab/dramaclaw-gateway`. To keep them out of reach of pull request code:
+
+- only workflows triggered by `push` on a `v*-dramaclaw.*` tag or by
+  `workflow_dispatch` may reference those secrets;
+- a workflow triggered by `pull_request_target` must never check out the pull
+  request head and must never pass secrets to steps that run pull request code;
+- keep third-party actions pinned to a full commit SHA.
+
 ## Licensing
 
 Contributions are accepted under the repository's GNU AGPLv3 license and
