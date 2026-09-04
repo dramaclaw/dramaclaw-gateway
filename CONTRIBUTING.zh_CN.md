@@ -168,6 +168,16 @@ bun run build
 当支持范围明确、不支持路径能够安全失败且支持矩阵记录了剩余缺口时，维护者可以合入部分
 供应商能力。
 
+## 公开仓库中的 CI 密钥
+
+本仓库是公开 fork，持有用于发布 `claymorelab/dramaclaw-gateway` 镜像的 registry 凭证
+（`DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`）。为避免凭证暴露给 PR 代码：
+
+- 只有由 `v*-dramaclaw.*` tag 的 `push` 或 `workflow_dispatch` 触发的工作流可以引用这些 secrets；
+- `pull_request_target` 触发的工作流绝不能 checkout PR head，也不能把 secrets 传给运行 PR 代码的步骤；
+- `pull_request_target` 触发的工作流其 `permissions:` 必须全部为只读；
+- 第三方 action 一律钉完整 commit SHA。
+
 ## 许可证
 
 贡献代码按仓库 GNU AGPLv3 许可证及适用 NOTICE 接收。请保留已有版权和许可证头。提交

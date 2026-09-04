@@ -1,3 +1,4 @@
+# Manual branch images only. Tags are namespaced branch-<name>[-<date>-<sha>]; release tags go through docker-build.yml.
 name: Publish Docker image (manual branch)
 
 on:
@@ -31,6 +32,18 @@ jobs:
         env:
           BRANCH_NAME: ${{ inputs.branch }}
         run: |
+          set -euo pipefail
+
+          case "$BRANCH_NAME" in
+            latest|v[0-9]*|refs/tags/*)
+              echo "::error::'$BRANCH_NAME' looks like a release tag or 'latest'; branch builds must use a branch name"
+              exit 1 ;;
+          esac
+          if git ls-remote --exit-code --tags origin "refs/tags/${BRANCH_NAME}" >/dev/null 2>&1; then
+            echo "::error::'$BRANCH_NAME' is a tag; use docker-build.yml for release tags"
+            exit 1
+          fi
+
           TAG_PREFIX=$(printf '%s' "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//')
           TAG_PREFIX=${TAG_PREFIX:0:105}
           TAG_PREFIX=$(printf '%s' "$TAG_PREFIX" | sed -E 's/[.-]+$//')
@@ -38,6 +51,7 @@ jobs:
             echo "::error::Branch '$BRANCH_NAME' cannot be converted to a valid Docker tag prefix"
             exit 1
           fi
+          TAG_PREFIX="branch-${TAG_PREFIX}"
 
           SHA=$(git rev-parse HEAD)
           SHORT_SHA=$(git rev-parse --short HEAD)
@@ -98,7 +112,7 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: |
-            calciumion/new-api
+            claymorelab/dramaclaw-gateway
 
       - name: Build & push single-arch
         id: build
@@ -109,8 +123,8 @@ jobs:
           platforms: ${{ matrix.platform }}
           push: true
           tags: |
-            calciumion/new-api:${{ needs.prepare.outputs.tag_prefix }}-${{ matrix.arch }}
-            calciumion/new-api:${{ needs.prepare.outputs.version }}-${{ matrix.arch }}
+            claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.tag_prefix }}-${{ matrix.arch }}
+            claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.version }}-${{ matrix.arch }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -121,15 +135,15 @@ jobs:
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Sign image with cosign
-        run: cosign sign --yes calciumion/new-api@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes claymorelab/dramaclaw-gateway@${{ steps.build.outputs.digest }}
 
       - name: Output digest
         run: |
           {
             echo "### Docker Image Digest (${{ matrix.arch }})"
             echo '```'
-            echo "calciumion/new-api:${{ needs.prepare.outputs.tag_prefix }}-${{ matrix.arch }}"
-            echo "calciumion/new-api:${{ needs.prepare.outputs.version }}-${{ matrix.arch }}"
+            echo "claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.tag_prefix }}-${{ matrix.arch }}"
+            echo "claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.version }}-${{ matrix.arch }}"
             echo "${{ steps.build.outputs.digest }}"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
@@ -150,32 +164,32 @@ jobs:
       - name: Create & push manifest (Docker Hub - branch)
         run: |
           docker buildx imagetools create \
-            -t calciumion/new-api:${{ needs.prepare.outputs.tag_prefix }} \
-            calciumion/new-api:${{ needs.prepare.outputs.tag_prefix }}-amd64 \
-            calciumion/new-api:${{ needs.prepare.outputs.tag_prefix }}-arm64
+            -t claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.tag_prefix }} \
+            claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.tag_prefix }}-amd64 \
+            claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.tag_prefix }}-arm64
 
       - name: Create & push manifest (Docker Hub - versioned)
         run: |
           docker buildx imagetools create \
-            -t calciumion/new-api:${{ needs.prepare.outputs.version }} \
-            calciumion/new-api:${{ needs.prepare.outputs.version }}-amd64 \
-            calciumion/new-api:${{ needs.prepare.outputs.version }}-arm64
+            -t claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.version }} \
+            claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.version }}-amd64 \
+            claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.version }}-arm64
 
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: Sign manifests with cosign
         run: |
-          cosign sign --yes calciumion/new-api:${{ needs.prepare.outputs.tag_prefix }}
-          cosign sign --yes calciumion/new-api:${{ needs.prepare.outputs.version }}
+          cosign sign --yes claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.tag_prefix }}
+          cosign sign --yes claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.version }}
 
       - name: Output manifest digest
         run: |
           {
             echo "### Multi-arch Manifest Digests"
             echo '```'
-            docker buildx imagetools inspect calciumion/new-api:${{ needs.prepare.outputs.tag_prefix }}
+            docker buildx imagetools inspect claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.tag_prefix }}
             echo "---"
-            docker buildx imagetools inspect calciumion/new-api:${{ needs.prepare.outputs.version }}
+            docker buildx imagetools inspect claymorelab/dramaclaw-gateway:${{ needs.prepare.outputs.version }}
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
