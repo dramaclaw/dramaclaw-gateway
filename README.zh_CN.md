@@ -2,36 +2,97 @@
 
 # dramaclaw-gateway
 
-**面向 [DramaClaw](https://github.com/dramaclaw/dramaclaw) 的开源模型协议转换网关**
+**随 [DramaClaw](https://github.com/dramaclaw/dramaclaw) 一起发布的模型网关**
 
 简体中文 | [English](./README.md)
 
+[![Docker Hub](https://img.shields.io/docker/v/claymorelab/dramaclaw-gateway?sort=semver&label=docker&logo=docker&logoColor=white)](https://hub.docker.com/r/claymorelab/dramaclaw-gateway)
+[![License](https://img.shields.io/badge/license-see_LICENSE-blue.svg)](./LICENSE)
+
 </div>
 
-`dramaclaw-gateway` 接收 DramaClaw 使用的 DC-Media 协议，完成媒体角色标准化，并将请求
-转换为不同模型供应商的接口协议。
+`dramaclaw-gateway` 是每一份 DramaClaw CE 都自带的 OpenAI 兼容模型网关。它接收
+DramaClaw 图片 / 视频 / 音频生成所用的 **DC-Media** 协议（媒体角色、参考图、首尾帧），
+完成标准化后，把每个请求转换成各模型供应商的原生接口。文本模型则按普通的
+OpenAI 兼容对话调用直接透传。
 
 ```text
 DramaClaw -> DC-Media -> dramaclaw-gateway -> 渠道适配器 -> 模型供应商
 ```
 
-## 快速开始
+它是 [New API](https://github.com/QuantumNous/new-api) 的持续维护分支：保留 New API
+的渠道管理、令牌、额度与管理后台，并加入 DramaClaw 需要的 DC-Media 媒体适配器。媒体接口
+以 DC-Media 语义为准，不承诺兼容原 New API 的历史媒体任务请求和响应结构。
+
+## 随 DramaClaw 一起用（常规方式）
+
+不需要单独安装这个网关。DramaClaw CE 的
+[`docker-compose.yml`](https://github.com/dramaclaw/dramaclaw/blob/main/docker-compose.yml)
+会把它作为 `newapi` 服务，与 DramaClaw API 和网页一起启动：
+
+```bash
+git clone https://github.com/dramaclaw/dramaclaw.git
+cd dramaclaw
+cp .env.example .env
+docker compose up -d          # api + newapi（本网关）+ web
+```
+
+然后打开 <http://localhost:8080> → **设置 → 模型配置**，三选一：
+
+| 模式 | 网关在做什么 |
+|---|---|
+| **官方** | 闲置待命。DramaClaw 用你的 DC key 直连官方 RelayClaw 服务。 |
+| **自定义** | 一键初始化本网关（root 账号、运行令牌）。到 <http://localhost:3000> 的管理后台添加你自己的供应商渠道，DramaClaw 调用的每个模型都走这些渠道。 |
+| **本地 + 官方混合** | 主链路用官方模型，额外渠道（比如本地 ComfyUI 视频工作流）走本网关。 |
+
+网关的 SQLite 数据库放在 Compose 的 `newapi-data` 卷里，与 DramaClaw API 共享；管理员账号、
+运行令牌、渠道和模型映射都由 DramaClaw 自动初始化。网关版本用 `.env` 里的
+`DRAMACLAW_GATEWAY_VERSION` 钉住。完整步骤见
+[配置模型供应商](https://github.com/dramaclaw/dramaclaw/blob/main/docs/zh/getting-started/configuring-models.md)。
+
+## Docker 镜像
+
+amd64 / arm64 多架构镜像发布在 Docker Hub：
+[`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway)。
+
+- tag 规则是「上游 New API 版本 + DramaClaw 后缀」，例如 `v1.0.0-rc.24-dramaclaw.1`。
+  **没有 `latest` tag**：DramaClaw CE 只钉它测试过的精确 tag，建议你也这么做。
+- 每个 tag 都由本仓库同名 git tag 构建，经 cosign 签名，附带 SBOM 与来源证明。
+- 容器监听 `3000` 端口，工作目录 `/data`，默认用 `/data/one-api.db` 的 SQLite；
+  设置 `SQL_DSN` 可改用 PostgreSQL / MySQL。
+
+脱离 DramaClaw 单独运行（比如给多套 DramaClaw 共用一组渠道）：
+
+```bash
+docker run -d --name dramaclaw-gateway \
+  -p 3000:3000 \
+  -v dramaclaw-gateway-data:/data \
+  -e TZ=Asia/Shanghai \
+  claymorelab/dramaclaw-gateway:v1.0.0-rc.24-dramaclaw.1
+```
+
+打开 <http://localhost:3000>，按初始化向导创建管理员账号。其余配置与上游 New API 一致
+（`.env.example` 列出了全部变量），详见下方保留的 New API 文档。
+
+## 支持的供应商
+
+目前自带的渠道适配器及其对 DC-Media 协议的验证状态见
+[渠道支持矩阵](./docs/providers/README.md)：ComfyUI、MiniMax / 海螺、火山引擎豆包 /
+Seedance、fal.ai、阿里、可灵、即梦、Vertex AI、Gemini、OpenAI / Sora、Suno。
+渠道级能力以运行时接口 `GET /api/channel/types` 为准。
+
+## 开发
 
 需要准备 [`go.mod`](./go.mod) 声明的 Go 版本、Bun `1.3.14` 和 Docker Compose。
 
 ```bash
 git clone https://github.com/dramaclaw/dramaclaw-gateway.git
 cd dramaclaw-gateway
-make dev-api
+make dev-api          # API + 开发数据库（docker-compose.dev.yml）
+make dev-web          # 另开终端，前端在 http://localhost:5173
 ```
 
-在另一个终端启动前端：
-
-```bash
-make dev-web
-```
-
-访问 `http://localhost:5173`。修改 Go 代码后使用 `make dev-api-rebuild` 重建 API。
+修改 Go 代码后用 `make dev-api-rebuild` 重建，提 PR 前跑 `make test`。
 
 ## 贡献渠道适配器
 
@@ -49,10 +110,13 @@ make new-adapter PROVIDER=example TYPE=64 MODE=task CAPABILITIES=video
 - [适配器开发指南](./docs/dc-media/adapter-development.md)
 - [渠道支持矩阵](./docs/providers/README.md)
 - [协议原文](./dc-media-protocol.md)
+- [上游同步与发布流程](./docs/dc-media/upstream-sync-release.md)
+
+## 许可与署名
 
 本仓库基于 [New API](https://github.com/QuantumNous/new-api) 开发，并在下方完整保留其原始
-项目信息、署名、文档及许可证声明。`dramaclaw-gateway` 的媒体接口以 DC-Media 语义为准，
-不承诺兼容原 New API 的历史媒体任务请求和响应结构。
+项目信息、署名、文档及许可证声明。另见 [`LICENSE`](./LICENSE)、[`NOTICE`](./NOTICE) 与
+[`THIRD-PARTY-LICENSES.md`](./THIRD-PARTY-LICENSES.md)。
 
 ---
 
