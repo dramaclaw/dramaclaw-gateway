@@ -2,39 +2,110 @@
 
 # dramaclaw-gateway
 
-**The open-source model protocol gateway for [DramaClaw](https://github.com/dramaclaw/dramaclaw)**
+**The model gateway that ships inside [DramaClaw](https://github.com/dramaclaw/dramaclaw)**
 
 [简体中文](./README.zh_CN.md) | English
 
+[![Docker Hub](https://img.shields.io/docker/v/claymorelab/dramaclaw-gateway?sort=semver&label=docker&logo=docker&logoColor=white)](https://hub.docker.com/r/claymorelab/dramaclaw-gateway)
+[![License](https://img.shields.io/badge/license-see_LICENSE-blue.svg)](./LICENSE)
+
 </div>
 
-`dramaclaw-gateway` accepts the DC-Media contract used by DramaClaw, normalizes
-media roles, and converts requests into provider-specific APIs.
+`dramaclaw-gateway` is the OpenAI-compatible model gateway bundled with every
+DramaClaw CE install. It accepts the **DC-Media** contract DramaClaw uses for
+image, video and audio generation (media roles, reference images, first / last
+frames), normalizes it, and converts each request into the provider's native
+API. Text models pass through as ordinary OpenAI-compatible chat calls.
 
 ```text
 DramaClaw -> DC-Media -> dramaclaw-gateway -> provider adapter -> provider API
 ```
 
-## Quick Start
+It is a maintained fork of [New API](https://github.com/QuantumNous/new-api):
+you get New API's channel management, tokens, quotas and admin UI, plus the
+DC-Media media adapters DramaClaw needs. Its media endpoints follow DC-Media
+semantics and do not promise compatibility with historical New API media task
+request or response shapes.
+
+## Use it with DramaClaw (the normal way)
+
+You do not install this gateway separately. DramaClaw CE's
+[`docker-compose.yml`](https://github.com/dramaclaw/dramaclaw/blob/main/docker-compose.yml)
+starts it as the `newapi` service next to the DramaClaw API and web UI:
+
+```bash
+git clone https://github.com/dramaclaw/dramaclaw.git
+cd dramaclaw
+cp .env.example .env
+docker compose up -d          # api + newapi (this gateway) + web
+```
+
+Then open <http://localhost:8080> → **Settings → Model Config** and pick a mode:
+
+| Mode | What the gateway does |
+|---|---|
+| **Official** | Idle. DramaClaw talks to the official RelayClaw service with your DC key. |
+| **Custom** | One click initializes this gateway (root account, runtime token). Add your own provider channels in its admin UI at <http://localhost:3000>; every model DramaClaw calls goes through them. |
+| **Local + Official Hybrid** | Official models for the main pipeline, extra channels (e.g. a local ComfyUI video workflow) through this gateway. |
+
+The gateway's SQLite database lives in the Compose `newapi-data` volume and is
+shared with the DramaClaw API, which provisions the admin account, runtime token,
+channels and model mappings for you. Pin the gateway version with
+`DRAMACLAW_GATEWAY_VERSION` in `.env`. Full walkthrough:
+[Configuring Models](https://github.com/dramaclaw/dramaclaw/blob/main/docs/en/getting-started/configuring-models.md).
+
+## Docker image
+
+Multi-arch (amd64 / arm64) images are published to Docker Hub as
+[`claymorelab/dramaclaw-gateway`](https://hub.docker.com/r/claymorelab/dramaclaw-gateway).
+
+- Tags follow the upstream New API version plus a DramaClaw suffix, e.g.
+  `v1.0.0-rc.24-dramaclaw.1`. There is **no `latest` tag**: DramaClaw CE pins
+  the exact tag it was tested against, and so should you.
+- Each tag is built from the matching git tag in this repository, signed with
+  cosign, and ships an SBOM and provenance attestation.
+- The container listens on port `3000`, works in `/data`, and uses SQLite at
+  `/data/one-api.db` unless `SQL_DSN` points at PostgreSQL / MySQL.
+
+Standalone run (without DramaClaw), for example to host channels for several
+DramaClaw instances:
+
+```bash
+docker run -d --name dramaclaw-gateway \
+  -p 3000:3000 \
+  -v dramaclaw-gateway-data:/data \
+  -e TZ=Asia/Shanghai \
+  claymorelab/dramaclaw-gateway:v1.0.0-rc.24-dramaclaw.1
+```
+
+Open <http://localhost:3000> and complete the setup wizard to create the admin
+account. Configuration is the same as upstream New API (`.env.example` lists
+every variable); see the preserved New API documentation further down.
+
+## Supported providers
+
+Provider adapters shipped today, and their verification status against the
+DC-Media contract, are tracked in the
+[channel support matrix](./docs/providers/en/README.md): ComfyUI, MiniMax /
+Hailuo, VolcEngine Doubao / Seedance, fal.ai, Ali, Kling, Jimeng, Vertex AI,
+Gemini, OpenAI / Sora, Suno. `GET /api/channel/types` is the runtime source of
+truth for channel-level capabilities.
+
+## Develop
 
 Requirements: Go from [`go.mod`](./go.mod), Bun `1.3.14`, and Docker Compose.
 
 ```bash
 git clone https://github.com/dramaclaw/dramaclaw-gateway.git
 cd dramaclaw-gateway
-make dev-api
+make dev-api          # API + dev database via docker-compose.dev.yml
+make dev-web          # frontend on http://localhost:5173, in another terminal
 ```
 
-Start the frontend in another terminal:
+Run `make dev-api-rebuild` after Go changes and `make test` before a pull
+request.
 
-```bash
-make dev-web
-```
-
-Open `http://localhost:5173`. To rebuild the API after Go changes, run
-`make dev-api-rebuild`.
-
-## Contribute a Provider
+## Contribute a provider
 
 Start a compile-safe synchronous or asynchronous adapter scaffold:
 
@@ -52,12 +123,14 @@ fail explicitly.
 - [Channel support matrix](./docs/providers/en/README.md)
 - [Canonical protocol (English)](./dc-media-protocol.en.md)
 - [Canonical protocol (Chinese)](./dc-media-protocol.md)
+- [Upstream sync and release process](./docs/dc-media/en/upstream-sync-release.md)
+
+## License and attribution
 
 This repository is based on [New API](https://github.com/QuantumNous/new-api)
 and preserves its original project information, attribution, documentation, and
-license notices below. `dramaclaw-gateway` media endpoints follow DC-Media
-semantics and do not promise compatibility with historical New API media task
-request or response shapes.
+license notices below. See [`LICENSE`](./LICENSE), [`NOTICE`](./NOTICE) and
+[`THIRD-PARTY-LICENSES.md`](./THIRD-PARTY-LICENSES.md).
 
 ---
 
