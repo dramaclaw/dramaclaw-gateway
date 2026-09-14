@@ -6,7 +6,7 @@
 >
 > 适用范围：DramaClaw 图片、视频与音频模型接入
 >
-> 协议版本：1.1-draft
+> 协议版本：1.2-draft
 
 本文档定义 DramaClaw 向统一模型网关发送图片、视频和音频生成请求时使用的公共协议。新增媒体模型或供应商时，应优先适配本协议，不应在业务层新增供应商专属请求结构。
 
@@ -52,7 +52,7 @@ DramaClaw 选择业务模式并构造统一请求
 4. **能力由模型目录声明。** 前端展示和后端校验必须读取同一模型目录；前端限制不能替代后端校验。
 5. **报价与执行共享规范化结果。** 模型、分辨率、时长、素材数量和是否包含视频输入必须一致。
 6. **新代码只产生规范字段。** 旧字段只允许在兼容边界读取，不得继续从新调用链发送。
-7. **音频扩展保持显式。** 音频沿用 OpenAI Speech API 基础字段，参考音频、情感和音乐参数统一放入 `metadata`，并由适配器逐项转换。
+7. **音频扩展保持显式。** 语音合成沿用 OpenAI Speech API 基础字段，参考音频、情感和音乐参数统一放入 `metadata`。音色设计是产生可复用音色资源的独立能力，使用独立端点和请求结构，不得伪装成语音合成。
 
 ## 3. 接口与基础结构
 
@@ -146,15 +146,23 @@ POST /images/edits
 }
 ```
 
-### 3.3 DC-Media 音频扩展规范（Audio Profile）
+### 3.3 DC-Media 音频扩展规范（Audio Profiles）
 
-独立语音合成、参考音频合成和音乐生成统一使用：
+语音合成、参考音频合成和音乐生成统一使用：
 
 ```http
 POST /audio/speech
 ```
 
-DC-Media Audio Profile 不是一套新的并行接口。该规范继续复用 OpenAI Speech API 和 RelayClaw CE 现有的 `dto.AudioRequest`，只通过 `metadata` 表达参考音频、情感控制和音乐生成等扩展语义。供应商适配器必须显式消费这些扩展字段，不得将未知的 `metadata` 原样透传给上游。
+Speech Profile 继续复用 OpenAI Speech API 和现有 `dto.AudioRequest`，只通过 `metadata` 表达参考音频、情感控制和音乐生成等扩展语义。
+
+根据文本描述创建可复用音色使用：
+
+```http
+POST /audio/voice-designs
+```
+
+Voice Design Profile 创建的是后续语音合成可引用的音色资源，响应为 JSON，不得复用 `/audio/speech` 的音频二进制响应语义。两个 Profile 的供应商字段都必须由适配器显式转换，不得原样透传未知字段。
 
 当前版本只定义音频生成，不定义 `/audio/transcriptions` 或 `/audio/translations`。
 
@@ -186,7 +194,7 @@ DC-Media Audio Profile 不是一套新的并行接口。该规范继续复用 Op
 | `response_format` | string | 是 | 是 | 图片通常为 `b64_json`，视频为 `url` |
 | `metadata` | object | 是 | 是 | 画幅语义、清晰度、参考素材和可选能力 |
 
-### 3.5 音频公共顶层字段
+### 3.5 Speech Profile 公共顶层字段
 
 | 字段 | 类型 | 必需 | 说明 |
 |---|---|---:|---|
@@ -198,6 +206,20 @@ DC-Media Audio Profile 不是一套新的并行接口。该规范继续复用 Op
 | `metadata` | object | 否 | 参考音频、情感控制或音乐生成扩展参数 |
 
 音频请求不使用 `prompt`、`duration`、`width`、`height`、`n` 或视频模式字段。音频用途由模型目录和请求字段确定，不增加顶层 `mode`。
+
+### 3.6 Voice Design Profile 公共顶层字段
+
+| 字段 | 类型 | 必需 | 说明 |
+|---|---|---:|---|
+| `model` | string | 是 | 音色设计的网关模型名称 |
+| `target_model` | string | 是 | 后续使用该音色的语音合成模型 |
+| `preferred_name` | string | 是 | 客户端期望的稳定音色名称或名称前缀 |
+| `voice_prompt` | string | 是 | 音色特质的中文或英文描述 |
+| `preview_text` | string | 是 | 预览音频朗读文本 |
+| `sample_rate` | integer | 否 | 预览音频采样率 |
+| `response_format` | string | 否 | 预览音频格式，默认 `wav` |
+
+音色设计请求不使用 Speech Profile 的 `input`、`voice`、`speed` 或 `metadata.audio_url`。
 
 ## 4. 值规范化
 
@@ -596,11 +618,11 @@ adaptive → auto
 - 可选字段不得被重复放在顶层和 `metadata`。
 - 图片请求的 `watermark` 当前是图片端点顶层字段；视频请求的 `watermark` 位于 `metadata`，两者不得混用。
 
-## 10. DC-Media 音频扩展规范（Audio Profile）
+## 10. DC-Media 音频扩展规范（Audio Profiles）
 
 ### 10.1 公共规则
 
-DC-Media Audio Profile 以 OpenAI Speech API 的 `model`、`input`、`voice`、`response_format` 和 `speed` 为基础，在 `metadata` 中增加参考音频、情感控制和音乐生成参数。RelayClaw CE 继续使用现有 `/v1/audio/speech` 路由和 `dto.AudioRequest`，不得为该 Profile 增加独立路由或并行请求 DTO。
+DC-Media 将音频能力分为 Speech Profile 和 Voice Design Profile。Speech Profile 以 OpenAI Speech API 的 `model`、`input`、`voice`、`response_format` 和 `speed` 为基础，在 `metadata` 中增加参考音频、情感控制和音乐生成参数。Voice Design Profile 使用 `/v1/audio/voice-designs` 创建可由 Speech Profile 引用的音色资源。
 
 规则：
 
@@ -681,7 +703,55 @@ DC-Media Audio Profile 以 OpenAI Speech API 的 `model`、`input`、`voice`、`
 
 `response_format` 表示客户端期望接收的通用封装格式，`metadata.output_format` 表示模型支持的具体编码配置。适配器可以根据 `response_format` 选择供应商编码配置，但不得覆盖客户端显式发送的 `metadata.output_format`。
 
-### 10.5 音频响应
+### 10.5 音色设计
+
+音色设计使用同步 JSON 接口：
+
+```http
+POST /v1/audio/voice-designs
+Content-Type: application/json
+```
+
+```json
+{
+  "model": "qwen-voice-design",
+  "target_model": "qwen3-tts-vd-2026-01-26",
+  "preferred_name": "custom_voice",
+  "voice_prompt": "年轻活泼的女性声音，语速较快，语调自然上扬。",
+  "preview_text": "大家好，欢迎来到我们的直播间！",
+  "sample_rate": 24000,
+  "response_format": "wav"
+}
+```
+
+成功响应：
+
+```json
+{
+  "id": "voice_xxx",
+  "object": "audio.voice",
+  "model": "qwen-voice-design",
+  "target_model": "qwen3-tts-vd-2026-01-26",
+  "voice": "voice_xxx",
+  "preview_audio": {
+    "data": "UklGRg...",
+    "format": "wav"
+  },
+  "request_id": "provider-request-id"
+}
+```
+
+约束：
+
+- `model`、`target_model`、`preferred_name`、`voice_prompt` 和 `preview_text` 必须是非空字符串。
+- `target_model` 必须是模型目录声明可与该设计模型配套使用的语音合成模型。
+- `voice_prompt` 只描述声音特质，不得要求模仿可识别的真实人物。长度限制由模型目录和适配器同时校验。
+- 音色资源可能归属于创建它的供应商账号或渠道凭证。网关必须保留该归属关系，后续使用 `voice` 合成时不得将请求分发给无法访问该音色的凭证。
+- 客户端只保存和回传网关响应的 `voice`，不依赖供应商内部账号、渠道 ID 或资源路径。
+- 预览音频是响应的一部分，不代表已执行后续语音合成。调用审计应省略或摘要记录大体积 Base64 数据。
+- 创建失败不得返回可用 `voice`，也不得按成功创建结算。
+
+### 10.6 Speech Profile 音频响应
 
 网关应该优先返回音频二进制：
 
@@ -716,7 +786,7 @@ Content-Type: audio/mpeg
 
 DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种响应。URL 可以是临时地址；是否持久归档不属于本协议。兼容客户端可以继续读取顶层 `url`、`audio_url` 或 `audioUrl`，但新网关响应应该使用 `audio.url`。
 
-### 10.6 音频适配器责任
+### 10.7 音频适配器责任
 
 音频供应商适配器必须：
 
@@ -724,8 +794,9 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 2. 将 OpenAI 基础字段和 DC-Media `metadata` 显式转换为供应商字段。
 3. 在请求上游前校验必需字段、时长、格式和参考音频限制。
 4. 保留显式的 `false`、`0` 和用户选择的输出格式。
-5. 将供应商 URL、Data URL 或 Base64 响应转换为第 10.5 节定义的响应之一。
+5. 将供应商 URL、Data URL 或 Base64 响应转换为第 10.6 节定义的响应之一。
 6. 返回稳定错误，不得用基础 TTS 降级处理参考音频或音乐请求。
+7. 实现 Voice Design Profile 时显式转换设计字段、解析 `voice` 和预览音频，并保留音色所属凭证。
 
 适配器不得把整个 `metadata` 对象直接反序列化到供应商请求并依赖同名字段碰巧生效。新增音频模型时必须建立明确的模型分流和字段映射。
 
@@ -924,7 +995,7 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 
 ### 12.3 音频模型目录
 
-音频模型使用 `media_type = "audio"`，请求端点必须声明为 `audio/speech`。模型专用参数仍通过声明式参数映射到第 10 节定义的安全路径：
+音频模型使用 `media_type = "audio"`。语音合成和音乐生成声明 `audio/speech`，音色设计声明 `audio/voice-designs`。模型专用参数仍通过声明式参数映射到第 10 节定义的安全路径：
 
 ```json
 {
@@ -960,6 +1031,8 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 
 语音合成模型应该声明支持的 `voice`、`response_format`、`speed` 范围及参考音频约束；音乐模型应该声明时长范围和输出编码选项。模型目录只声明公共能力，不得包含 FAL、火山或其他供应商的鉴权和私有请求结构。
 
+音色设计模型应该声明可用的 `target_model`、描述文本长度、预览文本长度、采样率和输出格式。`target_model` 是执行约束，不是可由客户端绕过目录任意指定的上游模型。
+
 ## 13. 报价与执行一致性
 
 本文不定义价格，但定义计费输入的一致性：
@@ -973,6 +1046,7 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 - 批量数量必须来自本次实际请求的生成单位，不得因计费单位为 `call` 而误用字符数或时长。
 - 音频语音合成的计费输入必须来自实际发送的文本、音频时长或模型声明单位；音乐生成必须使用规范化后的 `metadata.music_length_ms`。
 - 音频报价和执行必须使用同一个 `gateway_model`、`response_format` 和显式音频扩展参数。
+- 音色设计按成功创建数量计费；单次请求的计费数量为 `1`，上游未返回可用 `voice` 时不得结算成功费用。
 
 用户积分账和供应商成本账可以采用不同结算口径，但差异必须是明确的产品决策，不能由参数转换意外产生。
 
@@ -993,6 +1067,8 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 - `catalog_id` 与执行模型不一致；
 - 音频 `model` 或 `input` 为空；
 - 需要参考音频的模型缺少 `metadata.audio_url`；
+- 音色设计缺少 `target_model`、`preferred_name`、`voice_prompt` 或 `preview_text`；
+- 音色设计的 `target_model`、文本长度、采样率或输出格式不在模型目录允许范围内；
 - 音乐时长、输出格式或参考音频约束不符合模型目录；
 - 音频请求携带适配器不支持但会改变生成语义的扩展字段。
 

@@ -9,9 +9,9 @@ tests take precedence.
 
 ## Goals and Boundaries
 
-DC-Media gives DramaClaw a provider-neutral image and asynchronous video
-contract. `dramaclaw-gateway` validates and normalizes that contract before a
-provider adapter creates an upstream request.
+DC-Media gives DramaClaw provider-neutral image, asynchronous video, speech,
+and voice-design contracts. `dramaclaw-gateway` validates and normalizes those
+contracts before a provider adapter creates an upstream request.
 
 Provider field names, authentication headers, task status names, and model
 quirks do not belong in the public request. The protocol does not include a
@@ -24,6 +24,14 @@ top-level `mode`; the gateway derives a provider call shape from media roles.
 | `POST /images/generations` | Text-to-image without reference images |
 | `POST /images/edits` | Image editing or generation with one or more reference images |
 | `POST /video/generations` | Submit an asynchronous video task |
+| `POST /audio/speech` | Synthesize speech or generate audio |
+| `POST /audio/voice-designs` | Create a reusable voice from a text description |
+
+Voice design is not speech synthesis. It uses a dedicated DTO and returns a
+JSON `audio.voice` resource containing a reusable `voice`, `target_model`, and
+preview audio. The gateway must preserve ownership between the voice and the
+provider credential that created it so later speech requests reach a credential
+that can access the voice.
 
 ## Common Fields
 

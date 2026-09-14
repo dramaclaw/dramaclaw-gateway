@@ -33,7 +33,16 @@ Standalone audio generation continues to use the OpenAI-compatible
 `/v1/audio/speech` endpoint and `dto.AudioRequest`.
 `relay/common.NormalizeDCMediaAudioRequest` applies the DC-Media Audio Profile
 and classifies basic TTS, reference speech, and music requests. Do not add a
-parallel route or request DTO for the audio profile.
+parallel route or request DTO for the Speech Profile.
+
+Voice design uses `/v1/audio/voice-designs` and a dedicated DTO because it
+creates a reusable voice resource and preview audio rather than synthesized
+speech. Its adapter must parse a non-empty `voice`, retain ownership between
+the voice and its creating credential, and omit large preview-audio Base64 from
+audit logs. If the gateway uses signed handles to encapsulate upstream voice IDs and
+credential ownership, the signing secret must remain stable across restarts and
+be shared by every instance. Secret rotation must continue accepting the previous
+secret, or existing voice handles become invalid.
 
 ## Directory and Registration
 
