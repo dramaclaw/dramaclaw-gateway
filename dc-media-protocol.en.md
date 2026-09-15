@@ -4,9 +4,9 @@
 
 > Status: Draft
 >
-> Scope: DramaClaw image and video model integration
+> Scope: DramaClaw image, video, and audio model integration
 >
-> Protocol version: 1.0-draft
+> Protocol version: 1.2-draft
 
 This document is the English counterpart of
 [`dc-media-protocol.md`](./dc-media-protocol.md). Both documents define the same
@@ -55,6 +55,9 @@ or undocumented provider parameters.
    and media-count result.
 6. New code emits canonical fields only. Legacy fields may be read only at an
    explicit compatibility boundary.
+7. Audio extensions remain explicit. Speech synthesis keeps the OpenAI Speech
+   base fields, while voice design uses a separate resource-creation endpoint
+   and MUST NOT be represented as speech synthesis.
 
 ## 3. Endpoints and Base Structures
 
@@ -78,7 +81,18 @@ references. References use the top-level `image` array. Provider fields such as
 |---|---|
 | `POST /video/generations` | Submit an asynchronous video task |
 
-### 3.3 Common Top-Level Fields
+### 3.3 Audio Endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /audio/speech` | Speech synthesis, reference speech, or music generation |
+| `POST /audio/voice-designs` | Create a reusable voice from a natural-language description |
+
+The speech endpoint reuses the OpenAI Speech request shape and places explicit
+DC-Media extensions in `metadata`. Voice design returns a JSON resource and
+therefore has its own request DTO and response contract.
+
+### 3.4 Image and Video Common Top-Level Fields
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -90,6 +104,33 @@ references. References use the top-level `image` array. Provider fields such as
 | `n` | integer | Number of outputs, currently normally `1` |
 | `response_format` | string | Usually `b64_json` for images and `url` for video |
 | `metadata` | object | Ratio, resolution, reference media, and optional capabilities |
+
+### 3.5 Speech Profile Top-Level Fields
+
+| Field | Type | Required | Meaning |
+|---|---|---:|---|
+| `model` | string | yes | Gateway speech or music model name |
+| `input` | string | yes | Text to synthesize or music description |
+| `voice` | string | no | Catalog-supported voice name or ID |
+| `response_format` | string | no | Requested audio format; defaults to `mp3` |
+| `speed` | number | no | Speech speed when supported |
+| `metadata` | object | no | Reference audio, emotion, or music extensions |
+
+### 3.6 Voice Design Profile Top-Level Fields
+
+| Field | Type | Required | Meaning |
+|---|---|---:|---|
+| `model` | string | yes | Gateway voice-design model name |
+| `target_model` | string | yes | Speech model that will consume the created voice |
+| `preferred_name` | string | yes | Stable requested voice name or prefix |
+| `voice_prompt` | string | yes | Chinese or English description of voice traits |
+| `preview_text` | string | yes | Text spoken by the preview audio |
+| `language` | string | no | Preview-text language; allowed values come from the model catalog |
+| `sample_rate` | integer | no | Preview-audio sample rate |
+| `response_format` | string | no | Preview format; defaults to `wav` |
+
+Voice design does not use the Speech Profile's `input`, `voice`, `speed`, or
+`metadata.audio_url` fields.
 
 ## 4. Value Normalization
 
@@ -417,15 +458,103 @@ Preserve explicit `false` and `0` values. Unsupported options must be omitted
 only when the public contract defines them as optional and no user value was
 selected; otherwise return a parameter error.
 
-## 10. Responses and Task Status
+## 10. DC-Media Audio Profiles
 
-### 10.1 Image Response
+### 10.1 Speech Profile
+
+`POST /v1/audio/speech` uses the OpenAI Speech fields `model`, `input`,
+`voice`, `response_format`, and `speed`. Reference speech, emotion controls,
+and music options are explicit `metadata` extensions. Adapters MUST reject
+unsupported extensions instead of silently falling back to basic TTS.
+
+The canonical extension fields are:
+
+| `metadata` field | Type | Meaning |
+|---|---|---|
+| `audio_url` | string | HTTP(S) audio URL or audio Data URL used as a voice reference |
+| `should_use_prompt_for_emotion` | boolean | Enable text-directed emotion control |
+| `emotion_prompt` | string | Emotion, tone, or performance description |
+| `music_length_ms` | integer | Requested music duration from 3,000 through 600,000 ms |
+| `force_instrumental` | boolean | Request instrumental output |
+| `respect_sections_durations` | boolean | Preserve section durations from the prompt |
+| `output_format` | string | Provider-independent encoding option declared by the catalog |
+
+Speech responses are complete audio bytes with an accurate `Content-Type`, or
+a canonical JSON URL/Base64 response when the gateway does not download the
+provider result.
+
+### 10.2 Voice Design Profile
+
+Voice design is a synchronous JSON resource-creation endpoint:
+
+```http
+POST /v1/audio/voice-designs
+Content-Type: application/json
+```
+
+```json
+{
+  "model": "qwen-voice-design",
+  "target_model": "qwen3-tts-vd-2026-01-26",
+  "preferred_name": "custom_voice",
+  "voice_prompt": "A lively young female voice with a naturally rising tone.",
+  "preview_text": "Welcome to our live stream.",
+  "language": "en",
+  "sample_rate": 24000,
+  "response_format": "wav"
+}
+```
+
+A successful response uses this contract:
+
+```json
+{
+  "id": "voice_xxx",
+  "object": "audio.voice",
+  "model": "qwen-voice-design",
+  "target_model": "qwen3-tts-vd-2026-01-26",
+  "voice": "voice_xxx",
+  "preview_audio": {
+    "data": "UklGRg...",
+    "format": "wav"
+  },
+  "request_id": "provider-request-id"
+}
+```
+
+Rules:
+
+- `model`, `target_model`, `preferred_name`, `voice_prompt`, and
+  `preview_text` MUST be non-empty strings.
+- The catalog MUST allow `target_model` for the selected design model.
+- `language` MUST match `preview_text`; omission uses the model catalog's default.
+- Voice descriptions MUST describe traits and MUST NOT request imitation of an
+  identifiable real person. Catalog and adapter limits apply to both texts.
+- A voice can be scoped to the provider account or credential that created it.
+  The gateway MUST retain that ownership and MUST NOT route later speech calls
+  to a credential that cannot access the voice.
+- Clients store and submit only the gateway-returned `voice`; provider account,
+  channel, and internal resource identifiers remain gateway concerns.
+- Audit logs SHOULD omit or summarize large preview-audio Base64 payloads.
+- A failed creation MUST NOT return a usable `voice` or settle a successful
+  per-creation charge.
+
+### 10.3 Audio Adapter Responsibilities
+
+Adapters explicitly map every supported Speech or Voice Design field, validate
+provider limits before dispatch, preserve explicit zero and false values, and
+return stable sanitized errors. Voice Design adapters also parse a non-empty
+`voice`, preserve credential ownership, and normalize preview audio.
+
+## 11. Responses and Task Status
+
+### 11.1 Image Response
 
 Image responses use an OpenAI-compatible `data` array. Multiple outputs remain
 multiple array items. For `response_format=b64_json`, return `b64_json` rather
 than an empty URL.
 
-### 10.2 Video Task Submission Response
+### 11.2 Video Task Submission Response
 
 Video submission returns a gateway public task ID:
 
@@ -440,7 +569,7 @@ Video submission returns a gateway public task ID:
 
 `id` and `task_id` are identical. Never expose the provider task ID.
 
-### 10.3 Video Task Query Response
+### 11.3 Video Task Query Response
 
 Task queries return a result array:
 
@@ -460,7 +589,7 @@ Task queries return a result array:
 }
 ```
 
-### 10.4 Task Status
+### 11.4 Task Status
 
 Public task states are `queued`, `running`, `succeeded`, `failed`, `cancelled`,
 and `expired`. Provider states must be mapped inside the adapter.
@@ -477,7 +606,7 @@ and `expired`. Provider states must be mapped inside the adapter.
 Provider values such as `processing`, `submitted`, or `SUCCESS` MUST NOT become
 new public statuses.
 
-### 10.5 Error Response
+### 11.5 Error Response
 
 Stable errors use this shape:
 
@@ -500,12 +629,12 @@ request bodies.
 - `retryable` states whether retrying the same parameters may succeed.
 - `upstream_request_id` SHOULD be returned when the provider supplies one.
 
-### 10.6 Task Cancellation
+### 11.6 Task Cancellation
 
 Report cancellation success only after the provider confirms the specific task
 was cancelled. Otherwise return `task_cancellation_unsupported`.
 
-## 11. Model Catalog Contract
+## 12. Model Catalog Contract
 
 The DramaClaw model catalog declares user-facing modes, ratios, resolutions,
 duration bounds, and reference-media counts. The gateway adapter still enforces
@@ -553,7 +682,7 @@ mapping rather than a mutable display label.
 - The frontend provides early feedback; the backend revalidates all modes,
   tiers, and media limits.
 
-### 11.1 Media Limits
+### 12.1 Media Limits
 
 The catalog MAY declare:
 
@@ -579,7 +708,7 @@ enables the corresponding client input and zero means unsupported.
 omitted limit means DramaClaw adds no catalog restriction; it does not mean the
 provider has no limit.
 
-### 11.2 Declarative Model Parameters
+### 12.2 Declarative Model Parameters
 
 Additional options MUST map to safe public request paths:
 
@@ -607,7 +736,15 @@ Declarative configuration MUST NOT override `model`, `prompt`, authentication
 headers, API keys, or gateway addresses. The backend validates control type,
 range, options, and mode restrictions. Optional unselected values are omitted.
 
-## 12. Quotation and Execution Consistency
+### 12.3 Audio Model Catalog
+
+Audio catalog entries use `media_type = "audio"`. Speech and music models use
+`audio/speech`; voice-design models use `audio/voice-designs`. A voice-design
+entry declares allowed `target_model` values, prompt limits, preview limits,
+sample rates, and response formats. Clients cannot bypass those declarations
+by supplying an arbitrary upstream target model.
+
+## 13. Quotation and Execution Consistency
 
 This contract does not define prices, but it requires consistent billing input:
 
@@ -625,7 +762,11 @@ This contract does not define prices, but it requires consistent billing input:
 User-credit accounting and provider-cost accounting MAY use different
 settlement bases, but that difference must be an explicit product decision.
 
-## 13. Validation and Errors
+Voice design is billed per successfully created voice. The quantity for one
+request is `1`; a response without a usable `voice` MUST NOT settle a successful
+creation charge.
+
+## 14. Validation and Errors
 
 Errors that can be determined locally MUST be rejected before task creation or
 provider invocation, including:
@@ -643,7 +784,11 @@ provider invocation, including:
 Errors use stable codes and readable messages. Business error classification
 MUST NOT depend on parsing provider prose.
 
-## 14. Compatibility and Deprecation
+Voice design requests are rejected locally when required fields are absent, the
+target model is not catalog-approved, text limits are exceeded, or the sample
+rate or response format is unsupported.
+
+## 15. Compatibility and Deprecation
 
 These are compatibility inputs and MUST NOT be emitted by new code:
 
@@ -673,7 +818,7 @@ These are compatibility inputs and MUST NOT be emitted by new code:
 - Historical New API media task shapes are not a compatibility target for
   DC-Media endpoints in this repository.
 
-## 15. New Model Onboarding Checklist
+## 16. New Model Onboarding Checklist
 
 At minimum, a new image or video model requires:
 
@@ -695,7 +840,7 @@ At minimum, a new image or video model requires:
     for invalid combinations.
 12. State migration, configuration, provider, and billing impact in the PR.
 
-## 16. Minimum Contract Tests
+## 17. Minimum Contract Tests
 
 An implementation must cover:
 

@@ -26,7 +26,9 @@ make new-adapter PROVIDER=example TYPE=64 MODE=task CAPABILITIES=video
 
 独立音频生成继续使用 OpenAI 兼容的 `/v1/audio/speech` 和 `dto.AudioRequest`。
 `relay/common.NormalizeDCMediaAudioRequest` 负责应用 DC-Media Audio Profile，识别基础
-TTS、参考音频合成和音乐生成。不得为音频 Profile 新增平行路由或请求 DTO。
+TTS、参考音频合成和音乐生成。不得为 Speech Profile 新增平行路由或请求 DTO。
+
+音色设计使用 `/v1/audio/voice-designs` 和独立 DTO。它产生的是可复用音色资源和预览音频，不是 Speech Profile 的合成音频。适配器必须解析非空 `voice`，保留音色与创建凭证的归属关系，并在调用审计中省略大体积预览音频 Base64。若网关使用签名句柄封装上游音色 ID 和凭证归属，签名密钥必须在重启后保持稳定，并在所有实例间一致；密钥轮换需要兼容旧密钥，否则已有音色句柄会失效。
 
 ## 目录与注册
 
