@@ -125,6 +125,7 @@ therefore has its own request DTO and response contract.
 | `preferred_name` | string | yes | Stable requested voice name or prefix |
 | `voice_prompt` | string | yes | Chinese or English description of voice traits |
 | `preview_text` | string | yes | Text spoken by the preview audio |
+| `language` | string | no | Preview-text language; allowed values come from the model catalog |
 | `sample_rate` | integer | no | Preview-audio sample rate |
 | `response_format` | string | no | Preview format; defaults to `wav` |
 
@@ -498,6 +499,7 @@ Content-Type: application/json
   "preferred_name": "custom_voice",
   "voice_prompt": "A lively young female voice with a naturally rising tone.",
   "preview_text": "Welcome to our live stream.",
+  "language": "en",
   "sample_rate": 24000,
   "response_format": "wav"
 }
@@ -525,6 +527,7 @@ Rules:
 - `model`, `target_model`, `preferred_name`, `voice_prompt`, and
   `preview_text` MUST be non-empty strings.
 - The catalog MUST allow `target_model` for the selected design model.
+- `language` MUST match `preview_text`; omission uses the model catalog's default.
 - Voice descriptions MUST describe traits and MUST NOT request imitation of an
   identifiable real person. Catalog and adapter limits apply to both texts.
 - A voice can be scoped to the provider account or credential that created it.

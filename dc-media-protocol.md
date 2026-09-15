@@ -216,6 +216,7 @@ Voice Design Profile 创建的是后续语音合成可引用的音色资源，�
 | `preferred_name` | string | 是 | 客户端期望的稳定音色名称或名称前缀 |
 | `voice_prompt` | string | 是 | 音色特质的中文或英文描述 |
 | `preview_text` | string | 是 | 预览音频朗读文本 |
+| `language` | string | 否 | 预览文本语言；值域由模型目录声明 |
 | `sample_rate` | integer | 否 | 预览音频采样率 |
 | `response_format` | string | 否 | 预览音频格式，默认 `wav` |
 
@@ -719,6 +720,7 @@ Content-Type: application/json
   "preferred_name": "custom_voice",
   "voice_prompt": "年轻活泼的女性声音，语速较快，语调自然上扬。",
   "preview_text": "大家好，欢迎来到我们的直播间！",
+  "language": "zh",
   "sample_rate": 24000,
   "response_format": "wav"
 }
@@ -745,6 +747,7 @@ Content-Type: application/json
 
 - `model`、`target_model`、`preferred_name`、`voice_prompt` 和 `preview_text` 必须是非空字符串。
 - `target_model` 必须是模型目录声明可与该设计模型配套使用的语音合成模型。
+- `language` 必须与 `preview_text` 一致；省略时使用模型目录声明的默认语言。
 - `voice_prompt` 只描述声音特质，不得要求模仿可识别的真实人物。长度限制由模型目录和适配器同时校验。
 - 音色资源可能归属于创建它的供应商账号或渠道凭证。网关必须保留该归属关系，后续使用 `voice` 合成时不得将请求分发给无法访问该音色的凭证。
 - 客户端只保存和回传网关响应的 `voice`，不依赖供应商内部账号、渠道 ID 或资源路径。

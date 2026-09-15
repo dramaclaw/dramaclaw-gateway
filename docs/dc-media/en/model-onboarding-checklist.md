@@ -31,6 +31,7 @@
 - [ ] Models explicitly reject unsupported reference-audio, emotion, or music capabilities.
 - [ ] Audio responses use binary, canonical URL, or canonical Base64 forms.
 - [ ] Voice-design responses preserve `voice`, `target_model`, preview audio, and the upstream `request_id`.
+- [ ] Voice-design models declare preview language, name, text-length, sample-rate, and format limits.
 - [ ] The gateway preserves ownership between a custom voice and the credential that created it.
 - [ ] Voice creation is settled as one successful call only after the provider returns a usable `voice`.
 
