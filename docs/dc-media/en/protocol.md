@@ -126,8 +126,11 @@ combined with reference image, video, audio, file, or link fields. A top-level
 first frame cannot be combined with a reference file or link. `reference_file`
 and `reference_link` are mutually exclusive.
 
-DramaClaw model modes map to public fields, but mode names are not transmitted.
-The gateway validates mutual exclusion and derives a call shape in this order:
+DramaClaw model modes map to public fields, but mode names are not transmitted
+as a top-level `mode`. Omni-reference models use
+`metadata.omni_reference_task_type` to distinguish `reference`, `edit`, and
+`extend` subtypes. The gateway validates mutual exclusion and derives a generic
+media call shape in this order:
 
 1. `duration="auto"`, `metadata.ratio="auto"`, and at least one reference video:
    video edit;
@@ -141,6 +144,9 @@ The gateway validates mutual exclusion and derives a call shape in this order:
 The derived shape chooses a provider endpoint, workflow, or payload. It does not
 recover the original DramaClaw UI mode. If the provider does not support the
 shape, reject the request instead of dropping media or degrading modes.
+Video extension remains multimodal reference at the generic media-shape layer.
+A supporting adapter distinguishes it using the explicit `extend` subtype; it
+must not infer extension from a reference video and fixed duration alone.
 
 ### First Frame
 
@@ -187,7 +193,8 @@ This shape uses `ratio=auto` and sends no fixed width or height.
     "resolution": "720p",
     "reference_images": ["https://example.invalid/character.png"],
     "reference_videos": ["https://example.invalid/motion.mp4"],
-    "reference_audios": ["https://example.invalid/voice.mp3"]
+    "reference_audios": ["https://example.invalid/voice.mp3"],
+    "omni_reference_task_type": "reference"
   }
 }
 ```
@@ -228,13 +235,33 @@ clients must provide a provider-accessible URL.
     "ratio": "auto",
     "resolution": "720p",
     "reference_videos": ["https://example.invalid/source.mp4"],
-    "reference_images": ["https://example.invalid/background.png"]
+    "reference_images": ["https://example.invalid/background.png"],
+    "omni_reference_task_type": "edit"
   }
 }
 ```
 
 Video edit requires automatic duration, automatic ratio, and a source video. It
 must not include fixed dimensions or a fixed ratio.
+
+### Video Extension
+
+```json
+{
+  "model": "example-video-model",
+  "prompt": "continue naturally for five seconds",
+  "duration": 5,
+  "metadata": {
+    "ratio": "auto",
+    "resolution": "720p",
+    "reference_videos": ["https://example.invalid/source.mp4"],
+    "omni_reference_task_type": "extend"
+  }
+}
+```
+
+Video extension requires exactly one source video, automatic ratio, no fixed
+dimensions, and a positive integer extension duration.
 
 ## Optional Video Metadata
 
@@ -249,6 +276,7 @@ Public optional video fields live in `metadata`:
 | `return_last_frame` | boolean | Return the generated last frame as an image result |
 | `scene_optimize` | string | Catalog-declared scene optimization option |
 | `audio_setting` | string | Audio handling policy for video editing |
+| `omni_reference_task_type` | string | Omni-reference subtype: `reference`, `edit`, or `extend` |
 
 Preserve explicit `false` and `0` values. Unsupported options must be omitted
 only when the public contract defines them as optional and no user value was
