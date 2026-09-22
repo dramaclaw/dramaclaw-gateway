@@ -388,10 +388,11 @@ adaptive → auto
 | `image_reference` | 一张或多张图片作为风格、角色或内容参考 |
 | `all_reference` | 图片、视频、音频、文件或网页的多模态参考 |
 | `video_edit` | 以源视频为基础进行编辑 |
+| `video_extend` | 从一个源视频继续生成后续内容 |
 
-模式是 DramaClaw 内部的业务语义，用于决定界面、模型目录校验、素材角色和最终公共字段。模式本身不属于当前线上请求协议；进入网关后，单图、多图和全能参考允许按素材组合归一化为供应商可支持的调用形态。
+模式是 DramaClaw 内部的业务语义，用于决定界面、模型目录校验、素材角色和最终公共字段。模式名称不通过顶层 `mode` 传输；进入网关后，单图、多图和全能参考允许按素材组合归一化为供应商可支持的调用形态。需要区分全模态参考、视频编辑和视频延长的模型使用 `metadata.omni_reference_task_type` 传递稳定的子任务类型。
 
-当前协议不使用顶层 `mode` 字段。DramaClaw 根据业务模式生成规范的素材字段组合，网关按照第 7.2 节的固定优先级识别调用形态并转换为供应商协议。客户端和单个供应商适配器不得私自增加 `mode`，也不得建立另一套模式推断规则。
+当前协议不使用顶层 `mode` 字段。DramaClaw 根据业务模式生成规范的素材字段组合和必要的全模态子任务类型，网关按照第 7.2 节的固定优先级识别通用素材形态，再由支持全模态子任务类型的适配器转换为供应商协议。客户端和单个供应商适配器不得私自增加 `mode`，也不得建立另一套隐式模式推断规则。
 
 ### 7.1 模式与字段映射
 
@@ -404,6 +405,7 @@ adaptive → auto
 | `image_reference` | 不发送 | 不发送 | 1 张或多张 | 不发送 | 不发送 | 不发送 | 固定或目录允许的值 | 固定 |
 | `all_reference` | 不发送 | 不发送 | 可选 | 可选 | 可选 | 可选且二选一 | 固定或目录允许的值 | 固定 |
 | `video_edit` | 不发送 | 不发送 | 可选 | 源视频及允许的参考视频 | 可选 | 不发送 | `auto` | `auto` |
+| `video_extend` | 不发送 | 不发送 | 不发送 | 恰好 1 个源视频 | 不发送 | 不发送 | `auto` | 固定 |
 
 说明：
 
@@ -415,6 +417,17 @@ adaptive → auto
 - `first_last_frame` 至少需要一个关键帧；只有尾帧时不得把尾帧自动提升为首帧。
 - 参考图片的第一张不得自动作为首帧。
 - `video_edit` 的源视频仍通过 `metadata.reference_videos` 传递，业务模式决定它是编辑源而不是普通参考视频。
+- `video_extend` 必须通过 `metadata.reference_videos` 发送恰好一个源视频；固定 `duration` 表示要生成的延长时长。
+
+全模态子任务类型使用以下固定映射：
+
+| DramaClaw 模式 | `metadata.omni_reference_task_type` |
+|---|---|
+| `all_reference` | `reference` |
+| `video_edit` | `edit` |
+| `video_extend` | `extend` |
+
+该字段不是供应商请求中的嵌套 `metadata`。支持该能力的适配器必须将它转换到供应商要求的位置；Doubao/VolcEngine 将其作为上游请求顶级字段发送。
 
 ### 7.2 网关调用形态推断
 
@@ -440,6 +453,7 @@ adaptive → auto
 - `reference_file` 与 `reference_link` 互斥，同一请求最多出现其中一个。
 - `duration = "auto"` 但没有参考视频时属于无效请求，不能据此推断视频编辑。
 - `duration = "auto"` 的视频编辑不得携带 `reference_file` 或 `reference_link`；文件和网页参考属于固定时长的 `all_reference` 形态。
+- 视频延长在通用素材形态上仍属于固定时长的全能参考；支持该能力的适配器必须根据显式的 `omni_reference_task_type = "extend"` 区分并转换，不能仅凭一个参考视频和固定时长猜测为视频延长。
 - 供应商不支持推断出的调用形态时，应返回稳定的不支持错误，不得降级后忽略素材。
 
 ### 7.3 首帧
@@ -494,12 +508,13 @@ adaptive → auto
     ],
     "reference_audios": [
       "https://example.invalid/voice.mp3"
-    ]
+    ],
+    "omni_reference_task_type": "reference"
   }
 }
 ```
 
-全能参考不是视频编辑。包含参考视频且使用固定 `duration` 时，网关必须按全能参考处理；只有同时满足 `duration = "auto"`、`ratio = "auto"` 和存在参考视频时，才能识别为视频编辑。
+全能参考不是视频编辑。包含参考视频且使用固定 `duration` 时，网关必须按全能参考处理；只有同时满足 `duration = "auto"`、`ratio = "auto"` 和存在参考视频时，才能识别为视频编辑。支持全模态子任务类型的模型同时发送 `omni_reference_task_type = "reference"`。
 
 ### 7.6 参考文件与网页链接
 
@@ -544,7 +559,8 @@ adaptive → auto
     ],
     "reference_audios": [
       "https://example.invalid/music.mp3"
-    ]
+    ],
+    "omni_reference_task_type": "edit"
   }
 }
 ```
@@ -555,7 +571,32 @@ adaptive → auto
 - 时长必须为 `"auto"`；
 - 不得发送 `width`、`height`、`size` 或固定比例；
 - 网关根据源视频和供应商协议计算最终输出参数。
-- 网关通过 `duration = "auto"`、`metadata.ratio = "auto"` 和存在 `metadata.reference_videos` 的组合识别视频编辑，不需要额外的 `mode` 字段。
+- 网关通过 `duration = "auto"`、`metadata.ratio = "auto"` 和存在 `metadata.reference_videos` 的组合识别视频编辑，不需要顶层 `mode` 字段；支持全模态子任务类型的模型同时发送 `omni_reference_task_type = "edit"`。
+
+### 7.8 视频延长
+
+```json
+{
+  "model": "example-video-model",
+  "prompt": "在原视频之后自然续写五秒",
+  "duration": 5,
+  "metadata": {
+    "ratio": "auto",
+    "resolution": "720p",
+    "reference_videos": [
+      "https://example.invalid/source.mp4"
+    ],
+    "omni_reference_task_type": "extend"
+  }
+}
+```
+
+视频延长模式：
+
+- 必须发送恰好一个源视频；
+- 比例必须为 `auto`，不得发送固定宽高；
+- `duration` 必须是正整数，表示要生成的延长时长；
+- 必须发送 `metadata.omni_reference_task_type = "extend"`，避免固定时长的源视频被解释成普通全能参考。
 
 ## 8. 视频时长
 
@@ -596,7 +637,8 @@ adaptive → auto
     "output_format": "mp4",
     "return_last_frame": false,
     "scene_optimize": "anime",
-    "audio_setting": "auto"
+    "audio_setting": "auto",
+    "omni_reference_task_type": "extend"
   }
 }
 ```
@@ -610,6 +652,7 @@ adaptive → auto
 | `return_last_frame` | boolean | 是否在结果中同时返回尾帧图片 |
 | `scene_optimize` | string | 模型声明的场景优化档位 |
 | `audio_setting` | string | 视频编辑时的声音处理策略 |
+| `omni_reference_task_type` | string | 全模态参考子任务类型：`reference`、`edit` 或 `extend` |
 
 规则：
 
@@ -617,6 +660,7 @@ adaptive → auto
 - DramaClaw 发送用户选择或已明确的产品默认值。
 - 网关仅向支持该字段的供应商发送；不支持时应省略或返回明确的参数错误。
 - 可选字段不得被重复放在顶层和 `metadata`。
+- `omni_reference_task_type` 只用于模型目录声明支持的全模态参考模型，并且必须与实际素材、比例和时长组合一致。
 - 图片请求的 `watermark` 当前是图片端点顶层字段；视频请求的 `watermark` 位于 `metadata`，两者不得混用。
 
 ## 10. DC-Media 音频扩展规范（Audio Profiles）

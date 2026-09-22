@@ -261,9 +261,12 @@ The model catalog uses these canonical business-mode names:
 | `image_reference` | Use one or more images as style, identity, or content references |
 | `all_reference` | Use multimodal image, video, audio, file, or web references |
 | `video_edit` | Edit a source video |
+| `video_extend` | Continue a source video with newly generated content |
 
 Modes are internal DramaClaw business semantics and are not transmitted as a
-top-level `mode` field. They map to public fields as follows:
+top-level `mode` field. Models that must distinguish multimodal reference,
+video editing, and video extension use `metadata.omni_reference_task_type` as
+a stable task subtype. Modes map to public fields as follows:
 
 | Mode | Top-level `image` | `last_frame_image` | `reference_images` | `reference_videos` | `reference_audios` | `reference_file/link` | Ratio | Duration |
 |---|---|---|---|---|---|---|---|---|
@@ -274,6 +277,7 @@ top-level `mode` field. They map to public fields as follows:
 | `image_reference` | omitted | omitted | 1 or more | omitted | omitted | omitted | fixed or catalog value | fixed |
 | `all_reference` | omitted | omitted | optional | optional | optional | optional, mutually exclusive | fixed or catalog value | fixed |
 | `video_edit` | omitted | omitted | optional | source and allowed references | optional | omitted | `auto` | `auto` |
+| `video_extend` | omitted | omitted | omitted | exactly 1 source video | omitted | omitted | `auto` | fixed |
 
 Reference fields in this table live under `metadata`. Exactly one reference
 image normalizes to image-to-video. Multiple images without video or audio
@@ -281,6 +285,18 @@ normalize to image reference. Any reference video, audio, file, or link with
 fixed duration normalizes to all reference. A provider that cannot support the
 inferred shape MUST return an explicit unsupported error instead of dropping
 extra media.
+
+Omni-reference task subtypes use this fixed mapping:
+
+| DramaClaw mode | `metadata.omni_reference_task_type` |
+|---|---|
+| `all_reference` | `reference` |
+| `video_edit` | `edit` |
+| `video_extend` | `extend` |
+
+This value is not kept inside a provider request's nested `metadata` object.
+An adapter that supports it converts the value to the provider-required
+location. Doubao/VolcEngine sends it as a top-level upstream request field.
 
 ### 7.2 Gateway Call-Shape Inference
 
@@ -301,7 +317,8 @@ first frame cannot be combined with a reference file or link. `reference_file`
 and `reference_link` are mutually exclusive.
 
 DramaClaw model modes map to public fields, but mode names are not transmitted.
-The gateway validates mutual exclusion and derives a call shape in this order:
+The gateway validates mutual exclusion and derives a generic media call shape
+in this order:
 
 1. `duration="auto"`, `metadata.ratio="auto"`, and at least one reference video:
    video edit;
@@ -316,6 +333,10 @@ The derived shape chooses a provider endpoint, workflow, or payload. It does not
 recover the original DramaClaw UI mode. Automatic-duration video editing cannot
 include a reference file or link. If the provider does not support the shape,
 reject the request instead of dropping media or degrading modes.
+Video extension remains multimodal reference at the generic media-shape layer.
+A supporting adapter MUST distinguish and convert it using the explicit
+`omni_reference_task_type="extend"` value. It MUST NOT infer extension from a
+reference video and fixed duration alone.
 
 ### 7.3 First Frame
 
@@ -362,13 +383,15 @@ This shape uses `ratio=auto` and sends no fixed width or height.
     "resolution": "720p",
     "reference_images": ["https://example.invalid/character.png"],
     "reference_videos": ["https://example.invalid/motion.mp4"],
-    "reference_audios": ["https://example.invalid/voice.mp3"]
+    "reference_audios": ["https://example.invalid/voice.mp3"],
+    "omni_reference_task_type": "reference"
   }
 }
 ```
 
 A fixed-duration request with reference video is multimodal reference, not video
-editing.
+editing. Models that support omni-reference task subtypes also send
+`omni_reference_task_type="reference"`.
 
 ### 7.6 Reference File or Link
 
@@ -403,13 +426,36 @@ a provider-accessible URL.
     "ratio": "auto",
     "resolution": "720p",
     "reference_videos": ["https://example.invalid/source.mp4"],
-    "reference_images": ["https://example.invalid/background.png"]
+    "reference_images": ["https://example.invalid/background.png"],
+    "omni_reference_task_type": "edit"
   }
 }
 ```
 
 Video edit requires automatic duration, automatic ratio, and a source video. It
 must not include fixed dimensions or a fixed ratio.
+
+### 7.8 Video Extension
+
+```json
+{
+  "model": "example-video-model",
+  "prompt": "continue naturally for five seconds",
+  "duration": 5,
+  "metadata": {
+    "ratio": "auto",
+    "resolution": "720p",
+    "reference_videos": ["https://example.invalid/source.mp4"],
+    "omni_reference_task_type": "extend"
+  }
+}
+```
+
+Video extension requires exactly one source video, automatic ratio, no fixed
+dimensions, and a positive integer `duration` describing the generated
+extension. `metadata.omni_reference_task_type="extend"` is required so a fixed
+duration source-video request is not interpreted as ordinary multimodal
+reference.
 
 ## 8. Video Duration
 
@@ -453,10 +499,13 @@ Public optional video fields live in `metadata`:
 | `return_last_frame` | boolean | Return the generated last frame as an image result |
 | `scene_optimize` | string | Catalog-declared scene optimization option |
 | `audio_setting` | string | Audio handling policy for video editing |
+| `omni_reference_task_type` | string | Omni-reference subtype: `reference`, `edit`, or `extend` |
 
 Preserve explicit `false` and `0` values. Unsupported options must be omitted
 only when the public contract defines them as optional and no user value was
 selected; otherwise return a parameter error.
+`omni_reference_task_type` is only used by catalog-declared omni-reference
+models and must agree with the actual media, ratio, and duration shape.
 
 ## 10. DC-Media Audio Profiles
 

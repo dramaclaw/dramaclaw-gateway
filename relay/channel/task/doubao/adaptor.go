@@ -44,6 +44,7 @@ type MediaURL struct {
 type requestPayload struct {
 	Model                 string         `json:"model"`
 	Content               []ContentItem  `json:"content,omitempty"`
+	OmniReferenceTaskType string         `json:"omni_reference_task_type,omitempty"`
 	CallbackURL           string         `json:"callback_url,omitempty"`
 	ReturnLastFrame       *dto.BoolValue `json:"return_last_frame,omitempty"`
 	ServiceTier           string         `json:"service_tier,omitempty"`

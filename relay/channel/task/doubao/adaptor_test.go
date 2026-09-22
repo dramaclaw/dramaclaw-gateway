@@ -3,6 +3,7 @@ package doubao
 import (
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,6 +58,27 @@ func TestConvertToRequestPayloadTranslatesCanonicalDurationAndRatio(t *testing.T
 	require.NotNil(t, payload.Duration)
 	assert.Equal(t, 10, int(*payload.Duration))
 	assert.Equal(t, "adaptive", payload.Ratio)
+}
+
+func TestConvertToRequestPayloadForwardsOmniReferenceTaskType(t *testing.T) {
+	req := relaycommon.TaskSubmitReq{
+		Model:  "seedance-2.5",
+		Prompt: "continue the video",
+		Metadata: map[string]any{
+			"omni_reference_task_type": "extend",
+		},
+	}
+
+	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req)
+	require.NoError(t, err)
+	assert.Equal(t, "extend", payload.OmniReferenceTaskType)
+
+	data, err := common.Marshal(payload)
+	require.NoError(t, err)
+	var body map[string]any
+	require.NoError(t, common.Unmarshal(data, &body))
+	assert.Equal(t, "extend", body["omni_reference_task_type"])
+	assert.NotContains(t, body, "metadata")
 }
 
 func TestConvertToRequestPayloadPreservesSameURLAcrossFrameRoles(t *testing.T) {
