@@ -22,6 +22,7 @@ capabilities. This table records human verification and known gaps.
 | Gemini | `relay/channel/task/gemini/` | Registered; full DC-Media coverage needs audit | Check media roles and provider capability declarations |
 | OpenAI / Sora | `relay/channel/task/sora/` | Registered; full DC-Media coverage needs audit | Check asynchronous status and result proxying |
 | SunoAPI | `relay/channel/task/suno/` | Audio task adapter registered; not a DC-Media video adapter | Extend only after a public audio task contract is defined |
+| Runcrate | `relay/channel/runcrate/` | Text only. Reuses the OpenAI-compatible adapter; default Base URL `https://api.runcrate.ai` (no `/v1`). Checked against the live API: chat completions, streaming with `include_usage`, `GET /v1/models`, authentication error shape | Responses API and media endpoints are untested and not declared |
 
 ## Status Definitions
 

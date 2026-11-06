@@ -62,7 +62,9 @@ const (
 	ChannelTypeDoubaoAudio    = 62
 	// Keep 63 aligned with DramaClaw and the commercial RelayClaw channel ID.
 	ChannelTypeComfyUI = 63
-	ChannelTypeDummy   // this one is only for count, do not add any channel after this
+	// Proposed ID, pending maintainer confirmation (IDs are public compatibility contracts).
+	ChannelTypeRuncrate = 64
+	ChannelTypeDummy    // this one is only for count, do not add any channel after this
 
 )
 
@@ -131,6 +133,7 @@ var ChannelBaseURLs = []string{
 	"https://fal.run",                           //61
 	"https://openspeech.bytedance.com",          //62
 	"http://127.0.0.1:8188",                     //63, ComfyUI
+	"https://api.runcrate.ai",                   //64, Runcrate; no /v1, the OpenAI adapter appends it
 }
 
 var ChannelTypeNames = map[int]string{
@@ -194,6 +197,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeFal:            "fal.ai",
 	ChannelTypeDoubaoAudio:    "DoubaoAudio",
 	ChannelTypeComfyUI:        "ComfyUI",
+	ChannelTypeRuncrate:       "Runcrate",
 }
 
 func GetChannelTypeName(channelType int) string {
