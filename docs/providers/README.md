@@ -19,6 +19,7 @@
 | Gemini | `relay/channel/task/gemini/` | 已注册，DC-Media 完整覆盖待审计 | 检查媒体角色及供应商能力声明 |
 | OpenAI / Sora | `relay/channel/task/sora/` | 已注册，DC-Media 完整覆盖待审计 | 检查异步任务状态和结果代理 |
 | SunoAPI | `relay/channel/task/suno/` | 已注册音频任务，非 DC-Media 视频适配 | 在明确公共音频任务契约后再扩展 |
+| Runcrate | `relay/channel/runcrate/` | 仅文本。复用 OpenAI 兼容适配器；默认 Base URL 为 `https://api.runcrate.ai`（不含 `/v1`）。已对真实 API 验证：chat completions、带 `include_usage` 的流式响应、`GET /v1/models`、鉴权错误格式 | Responses API 和媒体端点未测试，也未声明 |
 
 ## 状态定义
 
