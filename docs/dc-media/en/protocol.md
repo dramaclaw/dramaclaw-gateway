@@ -25,11 +25,16 @@ top-level `mode`; the gateway derives a provider call shape from media roles.
 | `POST /images/edits` | Image editing or generation with one or more reference images |
 | `POST /video/generations` | Submit an asynchronous video task |
 | `POST /audio/speech` | Synthesize speech or generate audio |
-| `POST /audio/voice-designs` | Create a reusable voice from a text description |
+| `POST /audio/voice-designs` | Create a voice from text or, when supported, reference audio |
 
 Voice design is not speech synthesis. It uses a dedicated DTO and returns a
-JSON `audio.voice` resource containing a reusable `voice`, `target_model`, and
-preview audio. The gateway must preserve ownership between the voice and the
+JSON `audio.voice` resource containing `voice`, `target_model`, and optional
+preview audio. Optional audio cloning uses top-level `audio`, mutually exclusive
+with `voice_prompt` and `preview_text`. Response `retention` describes gateway
+policy (`persistent` or `temporary`); do not assume every voice is reusable.
+Optional `record_id` is for management, not synthesis. See the full specification
+for cloning support and lifetime rules; this extension does not itself implement
+CE runtime support. The gateway must preserve ownership between the voice and the
 provider credential that created it so later speech requests reach a credential
 that can access the voice.
 

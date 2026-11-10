@@ -34,6 +34,8 @@
 - [ ] Voice-design models declare preview language, name, text-length, sample-rate, and format limits.
 - [ ] The gateway preserves ownership between a custom voice and the credential that created it.
 - [ ] Voice creation is settled as one successful call only after the provider returns a usable `voice`.
+- [ ] Claimed cloning support covers URL/Data URI inputs, mutual exclusion with text design, unsupported-model rejection, and audio-size boundaries; preview audio is not required for clones.
+- [ ] Claimed `retention` behavior covers temporary consumption, repeated persistent synthesis, failure lease release, user isolation, and explicit deletion; `record_id` is not a synthesis handle.
 
 ## Asynchronous Tasks
 

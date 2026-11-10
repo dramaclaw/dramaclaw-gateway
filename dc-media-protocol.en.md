@@ -6,7 +6,7 @@
 >
 > Scope: DramaClaw image, video, and audio model integration
 >
-> Protocol version: 1.2-draft
+> Protocol version: 1.3-draft
 
 This document is the English counterpart of
 [`dc-media-protocol.md`](./dc-media-protocol.md). Both documents define the same
@@ -86,7 +86,7 @@ references. References use the top-level `image` array. Provider fields such as
 | Endpoint | Purpose |
 |---|---|
 | `POST /audio/speech` | Speech synthesis, reference speech, or music generation |
-| `POST /audio/voice-designs` | Create a reusable voice from a natural-language description |
+| `POST /audio/voice-designs` | Create a voice from text or, when supported, reference audio |
 
 The speech endpoint reuses the OpenAI Speech request shape and places explicit
 DC-Media extensions in `metadata`. Voice design returns a JSON resource and
@@ -123,14 +123,19 @@ therefore has its own request DTO and response contract.
 | `model` | string | yes | Gateway voice-design model name |
 | `target_model` | string | yes | Speech model that will consume the created voice |
 | `preferred_name` | string | yes | Stable requested voice name or prefix |
-| `voice_prompt` | string | yes | Chinese or English description of voice traits |
-| `preview_text` | string | yes | Text spoken by the preview audio |
-| `language` | string | no | Preview-text language; allowed values come from the model catalog |
+| `voice_prompt` | string | text design | Chinese or English description of voice traits |
+| `preview_text` | string | text design | Text spoken by the preview audio |
+| `audio` | string | audio cloning | HTTP(S) reference audio URL or audio Base64 Data URI; requires adapter support |
+| `language` | string | no | Preview-text language or reference-audio language hint; allowed values come from the model catalog |
 | `sample_rate` | integer | no | Preview-audio sample rate |
 | `response_format` | string | no | Preview format; defaults to `wav` |
 
 Voice design does not use the Speech Profile's `input`, `voice`, `speed`, or
 `metadata.audio_url` fields.
+
+Text design and audio cloning are mutually exclusive. Without `audio`, both
+`voice_prompt` and `preview_text` are required; with `audio`, neither is allowed.
+Cloning is optional and MUST NOT be inferred from text-design support.
 
 ## 4. Value Normalization
 
@@ -573,8 +578,8 @@ A successful response uses this contract:
 
 Rules:
 
-- `model`, `target_model`, `preferred_name`, `voice_prompt`, and
-  `preview_text` MUST be non-empty strings.
+- `model`, `target_model`, and `preferred_name` MUST be non-empty strings.
+  Text design additionally requires non-empty `voice_prompt` and `preview_text`.
 - The catalog MUST allow `target_model` for the selected design model.
 - `language` MUST match `preview_text`; omission uses the model catalog's default.
 - Voice descriptions MUST describe traits and MUST NOT request imitation of an
@@ -587,6 +592,57 @@ Rules:
 - Audit logs SHOULD omit or summarize large preview-audio Base64 payloads.
 - A failed creation MUST NOT return a usable `voice` or settle a successful
   per-creation charge.
+
+#### Optional Extension: Audio Cloning and Retention
+
+Models supporting cloning use the same endpoint, for example Bailian:
+
+```json
+{
+  "model": "voice-enrollment",
+  "target_model": "cosyvoice-v3.5-flash",
+  "preferred_name": "myvoice",
+  "audio": "https://example.invalid/reference.wav",
+  "language": "zh"
+}
+```
+
+```json
+{
+  "id": "vd1.opaque-signed-handle",
+  "object": "audio.voice",
+  "model": "voice-enrollment",
+  "target_model": "cosyvoice-v3.5-flash",
+  "voice": "vd1.opaque-signed-handle",
+  "record_id": 42,
+  "retention": "persistent",
+  "request_id": "provider-request-id"
+}
+```
+
+- Use authorized reference audio. URLs must be provider-accessible; adapters
+  validate Data URI formats and sizes. RelayClaw's Bailian implementation accepts
+  WAV/MP3/M4A and at most 10 MiB of embedded audio; it does not download URLs.
+- Cloning does not require or guarantee `preview_audio` and does not use preview
+  `sample_rate`. Omit `response_format` (the default `wav` does not affect cloning).
+  An unsupported adapter MUST reject cloning rather than ignore `audio` and
+  silently perform text design.
+- `voice` is an opaque handle submitted to `/v1/audio/speech` unchanged.
+  Optional `record_id` is a management ID, not a synthesis voice identifier.
+- Optional response `retention` is gateway policy, not client-selectable.
+  `persistent` permits repeated synthesis until user deletion; `temporary`
+  follows gateway expiry or one-use policy. Absence does not imply permanence.
+  RelayClaw text designs allow one successful synthesis within one hour; its
+  audio clones persist until deletion.
+- Gateways implementing managed voices MAY expose `GET /v1/audio/voices` and
+  `DELETE /v1/audio/voices/{record_id}` with ownership checks. RelayClaw lists
+  `expires_at=0` for non-expiring records. Deletion while creating or in use
+  returns 409; pending upstream deletion retries return 202.
+- A creation handle does not establish provider review readiness. Synthesis
+  may temporarily fail. Credential ownership, target-model and user isolation
+  still apply; persistence does not guarantee usability after account/key changes.
+- This optional protocol extension does not claim cloning runtime support in
+  `dramaclaw-gateway` CE. Clients MUST verify deployed gateway and adapter support.
 
 ### 10.3 Audio Adapter Responsibilities
 
@@ -793,6 +849,9 @@ entry declares allowed `target_model` values, prompt limits, preview limits,
 sample rates, and response formats. Clients cannot bypass those declarations
 by supplying an arbitrary upstream target model.
 
+Cloning models also declare reference-audio support, formats, and size limits.
+Text-design support alone does not imply cloning capability.
+
 ## 13. Quotation and Execution Consistency
 
 This contract does not define prices, but it requires consistent billing input:
@@ -836,6 +895,9 @@ MUST NOT depend on parsing provider prose.
 Voice design requests are rejected locally when required fields are absent, the
 target model is not catalog-approved, text limits are exceeded, or the sample
 rate or response format is unsupported.
+
+Cloning requests are rejected when `audio` is mixed with text-design fields,
+its format or size is invalid, or the adapter does not support cloning.
 
 ## 15. Compatibility and Deprecation
 
@@ -910,6 +972,12 @@ An implementation must cover:
 - quotation parameters consistent with execution parameters;
 - public/upstream task ID separation;
 - canonical public statuses, result arrays, stable errors, and cancellation.
+
+Implementations claiming audio cloning MUST additionally cover URL/Data URI
+mapping, mutual exclusion with text-design fields, responses without previews,
+invalid/oversized audio rejection, persistent reuse, temporary consumption,
+failure lease release, ownership checks, and explicit deletion. Updating this
+specification alone does not establish that implementation tests have passed.
 
 Any addition, removal, or semantic change to a public field MUST update both
 language versions of this document and the contract tests before provider

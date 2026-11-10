@@ -6,7 +6,7 @@
 >
 > 适用范围：DramaClaw 图片、视频与音频模型接入
 >
-> 协议版本：1.2-draft
+> 协议版本：1.3-draft
 
 本文档定义 DramaClaw 向统一模型网关发送图片、视频和音频生成请求时使用的公共协议。新增媒体模型或供应商时，应优先适配本协议，不应在业务层新增供应商专属请求结构。
 
@@ -214,13 +214,16 @@ Voice Design Profile 创建的是后续语音合成可引用的音色资源，�
 | `model` | string | 是 | 音色设计的网关模型名称 |
 | `target_model` | string | 是 | 后续使用该音色的语音合成模型 |
 | `preferred_name` | string | 是 | 客户端期望的稳定音色名称或名称前缀 |
-| `voice_prompt` | string | 是 | 音色特质的中文或英文描述 |
-| `preview_text` | string | 是 | 预览音频朗读文本 |
-| `language` | string | 否 | 预览文本语言；值域由模型目录声明 |
+| `voice_prompt` | string | 文字设计时 | 音色特质的中文或英文描述 |
+| `preview_text` | string | 文字设计时 | 预览音频朗读文本 |
+| `audio` | string | 音频复刻时 | HTTP(S) 参考音频 URL 或音频 Base64 Data URI；需适配器支持 |
+| `language` | string | 否 | 文字设计的预览语言或复刻音频的语种提示；值域由模型目录声明 |
 | `sample_rate` | integer | 否 | 预览音频采样率 |
 | `response_format` | string | 否 | 预览音频格式，默认 `wav` |
 
 音色设计请求不使用 Speech Profile 的 `input`、`voice`、`speed` 或 `metadata.audio_url`。
+
+文字设计与音频复刻互斥：没有 `audio` 时，`voice_prompt` 和 `preview_text` 均必填；有 `audio` 时不得同时传这两个字段。音频复刻是可选扩展，不能仅因网关支持文字设计就假定其支持复刻。
 
 ## 4. 值规范化
 
@@ -789,7 +792,7 @@ Content-Type: application/json
 
 约束：
 
-- `model`、`target_model`、`preferred_name`、`voice_prompt` 和 `preview_text` 必须是非空字符串。
+- `model`、`target_model`、`preferred_name` 必须是非空字符串；文字设计另需非空的 `voice_prompt` 和 `preview_text`。
 - `target_model` 必须是模型目录声明可与该设计模型配套使用的语音合成模型。
 - `language` 必须与 `preview_text` 一致；省略时使用模型目录声明的默认语言。
 - `voice_prompt` 只描述声音特质，不得要求模仿可识别的真实人物。长度限制由模型目录和适配器同时校验。
@@ -797,6 +800,41 @@ Content-Type: application/json
 - 客户端只保存和回传网关响应的 `voice`，不依赖供应商内部账号、渠道 ID 或资源路径。
 - 预览音频是响应的一部分，不代表已执行后续语音合成。调用审计应省略或摘要记录大体积 Base64 数据。
 - 创建失败不得返回可用 `voice`，也不得按成功创建结算。
+
+#### 可选扩展：参考音频复刻与保留策略
+
+支持复刻的模型使用同一端点，例如百炼：
+
+```json
+{
+  "model": "voice-enrollment",
+  "target_model": "cosyvoice-v3.5-flash",
+  "preferred_name": "myvoice",
+  "audio": "https://example.invalid/reference.wav",
+  "language": "zh"
+}
+```
+
+```json
+{
+  "id": "vd1.opaque-signed-handle",
+  "object": "audio.voice",
+  "model": "voice-enrollment",
+  "target_model": "cosyvoice-v3.5-flash",
+  "voice": "vd1.opaque-signed-handle",
+  "record_id": 42,
+  "retention": "persistent",
+  "request_id": "provider-request-id"
+}
+```
+
+- `audio` 必须来自有权使用的音频。URL 应可由供应商读取；Data URI 格式与大小由适配器校验。当前虾驿百炼实现接受 WAV/MP3/M4A，内嵌音频最多 10 MiB；网关不下载 URL 内容。
+- 复刻不要求或保证 `preview_audio`，不使用预览 `sample_rate`；省略 `response_format`（默认 `wav` 不影响复刻）。不支持复刻的适配器必须拒绝请求，不得忽略 `audio` 后改为文字设计。
+- `voice` 是不透明句柄，后续仍放入 `/v1/audio/speech` 的 `voice`；`record_id` 是可选管理 ID，不是合成音色 ID。
+- `retention` 是可选响应策略，不接受客户端指定。`persistent` 表示可重复合成、由用户删除；`temporary` 表示受网关临时保留或一次性使用策略约束。缺失时不得自行假定长期有效。当前虾驿文字设计为 1 小时内一次成功合成，音频复刻为长期保留。
+- 支持托管音色管理的网关可提供 `GET /v1/audio/voices` 和 `DELETE /v1/audio/voices/{record_id}`，必须校验资源归属；当前虾驿列表以 `expires_at=0` 表示不自动过期。创建中或使用中删除返回 409，上游删除待重试返回 202。
+- 创建返回句柄不代表供应商审核已经完成；后续合成仍可能暂时不可用。凭证归属、目标模型和用户隔离继续适用，长期保留不保证跨账号或换 Key 可用。
+- 本节是可选协议扩展，不表示 `dramaclaw-gateway` CE 已实现复刻运行时；客户端启用前必须确认部署的网关与模型适配器支持。
 
 ### 10.6 Speech Profile 音频响应
 
@@ -1080,6 +1118,8 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 
 音色设计模型应该声明可用的 `target_model`、描述文本长度、预览文本长度、采样率和输出格式。`target_model` 是执行约束，不是可由客户端绕过目录任意指定的上游模型。
 
+提供音频复刻时还应明确声明参考音频支持、格式和大小限制；不能从文字设计能力推断复刻能力。
+
 ## 13. 报价与执行一致性
 
 本文不定义价格，但定义计费输入的一致性：
@@ -1114,7 +1154,8 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 - `catalog_id` 与执行模型不一致；
 - 音频 `model` 或 `input` 为空；
 - 需要参考音频的模型缺少 `metadata.audio_url`；
-- 音色设计缺少 `target_model`、`preferred_name`、`voice_prompt` 或 `preview_text`；
+- 音色创建缺少 `target_model`、`preferred_name`，文字设计缺少 `voice_prompt` 或 `preview_text`，或混用两种模式；
+- 复刻音频格式、大小或模型能力不受支持；
 - 音色设计的 `target_model`、文本长度、采样率或输出格式不在模型目录允许范围内；
 - 音乐时长、输出格式或参考音频约束不符合模型目录；
 - 音频请求携带适配器不支持但会改变生成语义的扩展字段。
@@ -1195,5 +1236,7 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 - 音乐生成时长边界、输出格式和布尔参数；
 - 音频二进制、规范 URL 和 Base64 响应解析；
 - 音频适配器不支持扩展能力时明确拒绝，而不是静默降级。
+
+实现音频复刻扩展时还必须覆盖：URL/Data URI 的上游转换、与文字设计字段互斥、无预览响应、无效或超限音频拒绝、长期音色重复合成、临时音色消费、失败释放占用、资源归属校验和主动删除。仅同步本规范不等于这些实现测试已通过。
 
 任何公共协议字段的新增、删除或语义变更，都必须先更新本文档和契约测试，再修改供应商适配器。
