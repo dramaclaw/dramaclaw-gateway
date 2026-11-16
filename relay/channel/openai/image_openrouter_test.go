@@ -75,6 +75,30 @@ func TestOpenRouterImageJSONConversion(t *testing.T) {
 			want: `{"model":"openai/gpt-image-2","prompt":"paint this","n":1,"aspect_ratio":"auto","resolution":"2K","input_references":[{"type":"image_url","image_url":{"url":"https://example.com/a.png"}}]}`,
 		},
 		{
+			name: "automatic size preserves requested ratio and resolution",
+			mode: relayconstant.RelayModeImagesGenerations,
+			body: `{"model":"LingShan-NB-2","prompt":"a cat","size":"auto","metadata":{"ratio":"16:9","resolution":"2k"}}`,
+			want: `{"model":"openai/gpt-image-2","prompt":"a cat","n":1,"aspect_ratio":"16:9","resolution":"2K"}`,
+		},
+		{
+			name: "automatic size without metadata uses provider defaults",
+			mode: relayconstant.RelayModeImagesGenerations,
+			body: `{"model":"LingShan-G2","prompt":"a cat","size":"auto"}`,
+			want: `{"model":"openai/gpt-image-2","prompt":"a cat","n":1}`,
+		},
+		{
+			name: "automatic size and ratio pass shared validation",
+			mode: relayconstant.RelayModeImagesGenerations,
+			body: `{"model":"LingShan-G2","prompt":"a cat","size":" AuTo ","metadata":{"ratio":"auto","resolution":"2k"}}`,
+			want: `{"model":"openai/gpt-image-2","prompt":"a cat","n":1,"aspect_ratio":"auto","resolution":"2K"}`,
+		},
+		{
+			name: "explicit pixel size remains authoritative",
+			mode: relayconstant.RelayModeImagesGenerations,
+			body: `{"model":"LingShan-G2","prompt":"a cat","size":"1536x1024","metadata":{"ratio":"16:9","resolution":"2k"}}`,
+			want: `{"model":"openai/gpt-image-2","prompt":"a cat","n":1,"size":"1536x1024"}`,
+		},
+		{
 			name: "structured image references",
 			mode: relayconstant.RelayModeImagesEdits,
 			body: `{"model":"LingShan-G2","prompt":"paint this","images":[{"image_url":"https://example.com/a.png"}]}`,

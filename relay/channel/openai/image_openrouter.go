@@ -26,11 +26,15 @@ func openRouterImagePayload(c *gin.Context, request dto.ImageRequest, edit bool)
 		return nil, fmt.Errorf("OpenRouter image adapter does not support OpenAI masks")
 	}
 	payload := map[string]any{"model": request.Model, "prompt": request.Prompt}
+	size := strings.TrimSpace(request.Size)
+	if strings.EqualFold(size, "auto") {
+		size = ""
+	}
 	if request.N != nil {
 		payload["n"] = *request.N
 	}
-	if request.Size != "" {
-		payload["size"] = request.Size
+	if size != "" {
+		payload["size"] = size
 	}
 	if request.Quality != "" {
 		payload["quality"] = request.Quality
@@ -62,7 +66,7 @@ func openRouterImagePayload(c *gin.Context, request dto.ImageRequest, edit bool)
 	resolution = strings.ToUpper(strings.TrimSpace(resolution))
 	// CE's pixel size is derived from its ratio/resolution selectors. Prefer
 	// those selectors: not every OpenRouter image provider accepts pixel sizes.
-	if request.Size == "" || (request.Width > 0 && (ratio != "" || resolution != "")) {
+	if size == "" || (request.Width > 0 && (ratio != "" || resolution != "")) {
 		delete(payload, "size")
 		if ratio != "" {
 			if _, exists := payload["aspect_ratio"]; !exists {

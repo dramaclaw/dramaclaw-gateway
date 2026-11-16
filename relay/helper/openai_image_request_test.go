@@ -202,3 +202,32 @@ func TestGetAndValidOpenAIImageRequestRejectsConflictingAutoRatio(t *testing.T) 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "metadata.ratio=auto")
 }
+
+func TestGetAndValidOpenAIImageRequestAutoSizeGeometry(t *testing.T) {
+	for _, tc := range []struct {
+		name, size string
+		wantError  bool
+	}{
+		{name: "automatic size is not fixed geometry", size: "auto"},
+		{name: "automatic size ignores case and whitespace", size: " AuTo "},
+		{name: "pixel size still conflicts with automatic ratio", size: "1024x1024", wantError: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body, err := common.Marshal(map[string]any{
+				"model": "example-image", "prompt": "draw", "size": tc.size,
+				"metadata": map[string]string{"ratio": "auto"},
+			})
+			require.NoError(t, err)
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+			request, err := GetAndValidOpenAIImageRequest(c, relayconstant.RelayModeImagesGenerations)
+			if tc.wantError {
+				require.ErrorContains(t, err, "metadata.ratio=auto")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.size, request.Size, "shared validation must preserve the caller's size for the selected provider")
+		})
+	}
+}
