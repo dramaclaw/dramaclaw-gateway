@@ -29,7 +29,7 @@ func TestGetRegisteredChannelTypes(t *testing.T) {
 
 	openRouter := channelTypeMetadataByType(t, items, constant.ChannelTypeOpenRouter)
 	assert.Equal(t, "openrouter", openRouter.Provider)
-	assert.Equal(t, []string{"text", "vision", "embedding"}, openRouter.Capabilities)
+	assert.Equal(t, []string{"text", "vision", "embedding", "image"}, openRouter.Capabilities)
 
 	doubaoAudio := channelTypeMetadataByType(t, items, constant.ChannelTypeDoubaoAudio)
 	assert.Equal(t, "doubao_audio", doubaoAudio.Provider)

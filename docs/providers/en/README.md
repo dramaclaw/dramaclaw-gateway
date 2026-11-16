@@ -14,6 +14,7 @@ capabilities. This table records human verification and known gaps.
 | MiniMax / Hailuo | `relay/channel/task/hailuo/` | H3 and related video work exists; verify per model | Add model limits, frame-role, and reference-media contract tests |
 | VolcEngine / DoubaoVideo | `relay/channel/task/doubao/` | DC-Media video conversion exists | Document model boundaries and provider error mapping |
 | fal.ai | `relay/channel/fal/`, `relay/channel/task/fal/` | Sync media and async task adapters are registered | Add model fixtures and sanitized real-call evidence |
+| OpenRouter | `relay/channel/openai/` (channel type `20`) | Sync image generation, JSON / multipart references, and DC-Media aspect-ratio / resolution conversion are implemented. Official docs and model discovery were checked read-only; local fixtures cover the protocol, with no paid calls or real DramaClaw CE end-to-end result. See [OpenRouter](../openrouter.md) | Add real end-to-end evidence per model; check count, reference, size, and streaming limits |
 | Ali | `relay/channel/task/ali/` | Registered; full DC-Media coverage needs audit | Claim a protocol coverage audit and add missing-field tests |
 | Kling | `relay/channel/task/kling/` | Registered; full DC-Media coverage needs audit | Claim a protocol coverage audit and add missing-field tests |
 | Jimeng | `relay/channel/task/jimeng/` | Registered; full DC-Media coverage needs audit | Check last frame, multiple references, and explicit booleans |

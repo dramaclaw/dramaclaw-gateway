@@ -11,6 +11,7 @@
 | MiniMax / Hailuo | `relay/channel/task/hailuo/` | 已适配 H3 等视频任务，需按模型持续验证 | 补模型限制、首尾帧及参考素材契约测试 |
 | VolcEngine / DoubaoVideo | `relay/channel/task/doubao/` | 已有 DC-Media 视频转换 | 按官方模型补齐能力边界和错误映射 |
 | fal.ai | `relay/channel/fal/`、`relay/channel/task/fal/` | 已注册同步媒体和异步任务 | 增加模型级 fixture 和真实调用证据 |
+| OpenRouter | `relay/channel/openai/`（渠道类型 `20`） | 已适配同步图片生成、JSON / multipart 参考图及 DC-Media 比例与分辨率；官方文档与模型能力已只读核对，本地 fixture 验证，尚无付费调用或 DramaClaw CE 真实端到端证据。详见 [OpenRouter](./openrouter.md) | 按模型补充真实端到端验证，核对 `n`、参考图数量、尺寸和流式能力 |
 | Ali | `relay/channel/task/ali/` | 已注册，DC-Media 完整覆盖待审计 | 认领协议覆盖审计并补缺失字段测试 |
 | Kling | `relay/channel/task/kling/` | 已注册，DC-Media 完整覆盖待审计 | 认领协议覆盖审计并补缺失字段测试 |
 | Jimeng | `relay/channel/task/jimeng/` | 已注册，DC-Media 完整覆盖待审计 | 检查尾帧、多参考图及显式布尔值 |
