@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -170,4 +171,86 @@ func TestOpenRouterImageJSONFallbackPreservesResult(t *testing.T) {
 	assert.Contains(t, recorder.Body.String(), `"b64_json":"aW1hZ2U="`)
 	assert.Contains(t, recorder.Body.String(), `"media_type":"image/png"`)
 	assert.Contains(t, recorder.Body.String(), "data: [DONE]")
+}
+
+type openRouterImageDoneFailingWriter struct {
+	gin.ResponseWriter
+	cancel        context.CancelFunc
+	doneAttempted bool
+}
+
+func (w *openRouterImageDoneFailingWriter) Write(data []byte) (int, error) {
+	if strings.Contains(string(data), "[DONE]") {
+		w.doneAttempted = true
+		if w.cancel != nil {
+			w.cancel()
+			return 0, context.Canceled
+		}
+		return 0, io.ErrClosedPipe
+	}
+	return w.ResponseWriter.Write(data)
+}
+
+func (w *openRouterImageDoneFailingWriter) WriteString(data string) (int, error) {
+	return w.Write([]byte(data))
+}
+
+func TestOpenRouterCompletedImageDoneFailureStillSettles(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+
+	for _, response := range []struct{ name, contentType, body string }{
+		{
+			name:        "native SSE",
+			contentType: "text/event-stream",
+			body:        "data: {\"type\":\"image_generation.completed\",\"b64_json\":\"final-image\",\"media_type\":\"image/png\",\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":4,\"total_tokens\":7}}\n\ndata: [DONE]\n\n",
+		},
+		{
+			name:        "JSON converted to SSE",
+			contentType: "application/json",
+			body:        `{"data":[{"b64_json":"final-image","media_type":"image/png"}],"usage":{"prompt_tokens":3,"completion_tokens":4,"total_tokens":7}}`,
+		},
+	} {
+		for _, failure := range []struct {
+			name   string
+			cancel bool
+		}{
+			{name: "closing frame write error"},
+			{name: "client cancels after receiving the image", cancel: true},
+		} {
+			t.Run(response.name+"/"+failure.name, func(t *testing.T) {
+				c, recorder, resp, info := newImageTestContext(t, response.body, response.contentType, true)
+				ctx, cancel := context.WithCancel(c.Request.Context())
+				t.Cleanup(cancel)
+				c.Request = c.Request.WithContext(ctx)
+				writer := &openRouterImageDoneFailingWriter{ResponseWriter: c.Writer}
+				if failure.cancel {
+					writer.cancel = cancel
+				}
+				c.Writer = writer
+				info.ChannelType = constant.ChannelTypeOpenRouter
+				info.RelayMode = relayconstant.RelayModeImagesGenerations
+				info.PriceData.UsePrice = true
+				info.PriceData.AddOtherRatio("n", 2)
+
+				usage, apiErr := (&Adaptor{}).DoResponse(c, resp, info)
+
+				require.True(t, writer.doneAttempted)
+				assert.Contains(t, recorder.Body.String(), `"b64_json":"final-image"`, "the entire final image was delivered before the closing frame failed")
+				assert.Contains(t, recorder.Body.String(), `"media_type":"image/png"`)
+				assert.NotContains(t, recorder.Body.String(), "[DONE]")
+				if failure.cancel {
+					assert.ErrorIs(t, ctx.Err(), context.Canceled)
+				}
+				require.Nil(t, apiErr, "a closing frame failure must not refund a completed, delivered image")
+				actualUsage, ok := usage.(*dto.Usage)
+				require.True(t, ok)
+				assert.Equal(t, 3, actualUsage.PromptTokens)
+				assert.Equal(t, 4, actualUsage.CompletionTokens)
+				assert.Equal(t, 7, actualUsage.TotalTokens)
+				assert.Equal(t, 1.0, info.PriceData.OtherRatios()["n"], "settlement must use the actual completed image count")
+			})
+		}
+	}
 }

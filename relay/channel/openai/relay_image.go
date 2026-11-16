@@ -168,7 +168,9 @@ func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 	if info.StreamStatus != nil && info.StreamStatus.EndReason == relaycommon.StreamEndReasonDone {
 		if isOpenRouter {
 			if err := writeOpenRouterImageStreamData(c, "", "[DONE]"); err != nil {
-				return usage, incompleteOpenRouterImageError()
+				// The upstream completed normally and all completed images were
+				// delivered. A failed final marker must not refund those images.
+				logger.LogWarn(c, fmt.Sprintf("completed OpenRouter image: final SSE marker write failed: %v", err))
 			}
 		} else {
 			helper.Done(c)
@@ -422,13 +424,16 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 		doneErr = writeOpenaiImageStreamDone(c)
 	}
 	if doneErr != nil {
-		if info != nil && info.StreamStatus != nil {
-			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, doneErr)
-		}
 		if isOpenRouter {
-			return &usageResp.Usage, incompleteOpenRouterImageError()
+			// The complete upstream JSON and every image were already received
+			// and delivered. Keep the successful usage and image-count settlement.
+			logger.LogWarn(c, fmt.Sprintf("completed OpenRouter image: final SSE marker write failed: %v", doneErr))
+		} else {
+			if info != nil && info.StreamStatus != nil {
+				info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, doneErr)
+			}
+			return &usageResp.Usage, nil
 		}
-		return &usageResp.Usage, nil
 	}
 	if info != nil {
 		info.ReceivedResponseCount += int(imageCount)
