@@ -847,6 +847,19 @@ DramaClaw 必须支持音频二进制、规范 JSON URL 和规范 Base64 三种�
 
 适配器不得把整个 `metadata` 对象直接反序列化到供应商请求并依赖同名字段碰巧生效。新增音频模型时必须建立明确的模型分流和字段映射。
 
+### 10.7 持久音色管理与原始音频流（可选扩展）
+
+本节不改变 10.5 的文字音色设计接口或临时音色行为。网关与客户端必须显式支持本扩展；协议说明不代表所有部署或 CE 客户端已经实现。
+
+- `POST /v1/audio/voices` 使用 multipart/form-data 上传 `file`、`name`、`model`、`target_model` 和 `consent=true`，可选 `language`、`preferred_name`。首期 RelayClaw 实现接受 mono PCM16 WAV、16/24/48kHz、3-30 秒、最大 5MiB；完整请求最大 10MiB。供应商音频输入转换由网关负责，客户端不提交上游凭据或素材端点。
+- 创建必须携带 `Idempotency-Key`。同一身份、同键、同输入必须复用记录，不重复创建或扣费；同键不同输入拒绝。若崩溃时无法确认是否已扣费，必须要求核对，不能因没有音色 ID 就自动再次扣费。
+- 创建响应包含网关 `voice_id`、绑定 `channel_id`、`target_model`、`lifecycle=persistent`、`status` 和 `ready`，不暴露上游音色 ID 或 Key。供应商受理可返回 202；必须确认审核可用后才标记 ready，unknown 不是失败终态。
+- `GET /v1/audio/voices` 分页列出自己的记录；`GET /v1/audio/voices/{voice_id}` 查询详情与就绪状态；`PATCH` 同一路径修改 JSON `name`；`DELETE` 同一路径删除自己的资源。用户及应用主体隔离必须覆盖全部操作，数字管理 ID 只在兼容边界读取。
+- 后续 `/v1/audio/speech` 的 `voice` 使用稳定网关音色 ID。可选 `channel_id` 仅作绑定一致性校验，不允许客户端覆盖真实路由。渠道、上游凭据、模型及分组权限均须匹配。
+- Speech Profile 新增可选 `stream` boolean；`stream=true` 在支持的模型上返回原始音频块，不是 SSE 或 JSON。音频格式仍由 `response_format` 指定。音频输出后不得追加 JSON 错误或自动换渠道重试；客户端需要处理断流。
+- 同一音色的并发上限由网关能力约束，首期 RelayClaw 实现为串行占用，冲突返回 409。持久音色成功使用后仍可复用，不执行临时音色的一次使用后删除。
+- 创建与合成分别计费。结果不明时保留待核对状态与已预扣费用，不自动重复扣费或退款。原始录音保留期限与音色资源保留期限是两回事。
+
 ## 11. 响应与任务状态
 
 ### 11.1 图片响应
