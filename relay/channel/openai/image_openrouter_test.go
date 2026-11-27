@@ -340,3 +340,60 @@ func TestOpenRouterMultipartImageHTTPRoundTrip(t *testing.T) {
 	assert.Equal(t, "Bearer test-openrouter-key", got.authorization)
 	assert.JSONEq(t, `{"model":"openai/gpt-image-2","prompt":"paint the references","n":1,"stream":false,"response_format":"url","input_references":[{"type":"image_url","image_url":{"url":"data:image/png;base64,`+base64.StdEncoding.EncodeToString([]byte("first"))+`"}},{"type":"image_url","image_url":{"url":"data:image/png;base64,`+base64.StdEncoding.EncodeToString([]byte("second"))+`"}}]}`, string(got.body))
 }
+
+func TestOpenRouterSynchronousImageResponseRequiresUsableImage(t *testing.T) {
+	adaptor := &Adaptor{}
+	for _, mode := range []struct {
+		name  string
+		value int
+	}{
+		{"generation", relayconstant.RelayModeImagesGenerations},
+		{"edit", relayconstant.RelayModeImagesEdits},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			for _, tc := range []struct {
+				name string
+				body string
+				ok   bool
+			}{
+				{"empty data", `{"data":[]}`, false},
+				{"missing data", `{"usage":{"total_tokens":7}}`, false},
+				{"non-array data", `{"data":{"url":"https://example.com/image.png"}}`, false},
+				{"empty image fields", `{"data":[{},{"url":" ","b64_json":""}]}`, false},
+				{"non-string image fields", `{"data":[{"url":123,"b64_json":true}]}`, false},
+				{"nonempty URL", `{"data":[{},{"url":"https://example.com/image.png"}]}`, true},
+				{"nonempty base64", `{"data":[{"url":"","b64_json":"aW1hZ2U="}]}`, true},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					c, recorder, resp, info := newImageTestContext(t, tc.body, "application/json", false)
+					info.ChannelType = constant.ChannelTypeOpenRouter
+					info.RelayMode = mode.value
+
+					_, apiErr := adaptor.DoResponse(c, resp, info)
+
+					if tc.ok {
+						require.Nil(t, apiErr)
+						assert.JSONEq(t, tc.body, recorder.Body.String())
+						return
+					}
+					require.NotNil(t, apiErr)
+					assert.Equal(t, http.StatusBadGateway, apiErr.StatusCode)
+					assert.True(t, types.IsSkipRetryError(apiErr))
+					assert.False(t, c.Writer.Written(), "the outer relay must still be able to write the error response")
+				})
+			}
+		})
+	}
+
+	t.Run("other channels retain the existing response handling", func(t *testing.T) {
+		const body = `{"data":[]}`
+		c, recorder, resp, info := newImageTestContext(t, body, "application/json", false)
+		info.ChannelType = constant.ChannelTypeOpenAI
+		info.RelayMode = relayconstant.RelayModeImagesGenerations
+
+		_, apiErr := adaptor.DoResponse(c, resp, info)
+
+		require.Nil(t, apiErr)
+		assert.JSONEq(t, body, recorder.Body.String())
+	})
+}

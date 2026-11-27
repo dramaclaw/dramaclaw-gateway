@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -49,6 +50,14 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
 	}
 
+	if resp.StatusCode == http.StatusOK && info != nil && info.ChannelMeta != nil &&
+		info.ChannelType == constant.ChannelTypeOpenRouter && !info.IsStream &&
+		!hasOpenRouterImageResult(responseBody) {
+		// The upstream already reported success. Retrying could submit a second paid generation.
+		return nil, types.NewOpenAIError(fmt.Errorf("OpenRouter image response contained no usable images"),
+			types.ErrorCodeBadResponseBody, http.StatusBadGateway, types.ErrOptionWithSkipRetry())
+	}
+
 	updateOpenAIImageCount(info, gjson.GetBytes(responseBody, "data.#").Int())
 
 	// 写入新的 response body
@@ -57,6 +66,22 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 	normalizeOpenAIUsage(&usageResp.Usage)
 	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
 	return &usageResp.Usage, nil
+}
+
+func hasOpenRouterImageResult(body []byte) bool {
+	images := gjson.GetBytes(body, "data")
+	if !images.IsArray() {
+		return false
+	}
+	for _, image := range images.Array() {
+		for _, field := range []string{"url", "b64_json"} {
+			value := image.Get(field)
+			if value.Type == gjson.String && strings.TrimSpace(value.Str) != "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // normalizeOpenAIUsage maps the OpenAI Images usage shape (input_tokens /
