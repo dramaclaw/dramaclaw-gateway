@@ -19,6 +19,9 @@ import (
 // OpenRouter's Image API uses one JSON endpoint for generation and editing:
 // https://openrouter.ai/docs/guides/overview/multimodal/image-generation
 func openRouterImagePayload(c *gin.Context, request dto.ImageRequest, edit bool) (map[string]any, error) {
+	if request.Stream != nil && *request.Stream {
+		return nil, fmt.Errorf("OpenRouter image requests require a non-streaming response")
+	}
 	if request.N != nil && (*request.N < 1 || *request.N > 10) {
 		return nil, fmt.Errorf("OpenRouter image n must be between 1 and 10")
 	}

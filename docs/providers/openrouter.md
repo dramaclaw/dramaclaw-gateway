@@ -52,20 +52,12 @@
 base64 data URL；JSON 中的 HTTP(S) URL 和 data URL 可直接传递给上游。
 原生 OpenRouter `input_references` 也可用于 JSON 请求。
 
-原生参数按明确的允许列表传递，包括 `provider`、`seed`、`stream` 等，
-同时保留显式的 `false` 或 `0`。未将所有未知字段直接转发给上游。
+原生参数按允许列表传递，包括 `provider` 和 `seed`，同时保留显式的 `false` 或 `0`。
+开启全局或渠道请求体透传时，OpenRouter 图片请求仍会执行协议转换。
 OpenAI 的 `response_format` 不改变 OpenRouter 原生返回格式。
 
-非流式响应中的 `data[].b64_json`、可选的 `media_type` 和 `usage` 沿用现有图片响应链路，
-保留上游图片字节与 JSON 数据。此适配不把 base64 图片上传到存储后再改写成 URL。
-流式响应能力仍由所选模型和供应商决定。
-
-OpenRouter 流式图片请求需收到包含图片的完成事件并正常结束，才进入原有结算流程。
-上游报错、未完成就断流、完成前客户端取消或图片主体写回失败，都返回 API 错误以触发现有预扣退还，
-并禁止在同一请求内自动重试。HTTP 200 JSON 响应也需包含有效图片；空结果不按成功处理。
-若上游已成功完成且全部完整图片已送达，仅最后的 `[DONE]` 结束帧写失败只记录传输告警，
-仍按实际用量和图片数量结算，不将已完成的结果判为生成失败。
-已经开始输出 SSE 时，HTTP 头可能已是 200，后续失败以流事件和网关 API 错误传递。
+OpenRouter 图片适配使用同步 JSON 响应。`stream: true` 返回 HTTP 400。
+响应中的 `data[].b64_json`、可选的 `media_type` 和 `usage` 沿用现有图片响应链路。
 
 ## DramaClaw 几何参数
 
@@ -98,7 +90,7 @@ OpenRouter 对显式像素尺寸的支持随模型和供应商变化；其官方
 
 - 此适配不支持 OpenAI `mask` 编辑。OpenRouter 的 `markup` 与 OpenAI alpha mask
   语义不同，不能静默互换。
-- 生图模型对 `n`、参考图数量、比例、分辨率、质量和流式响应有各自的限制。
+- 生图模型对 `n`、参考图数量、比例、分辨率和质量有各自的限制。
   网关通用请求边界并不替代供应商的模型级校验。
 - 图片请求通过本次同步 HTTP 调用返回结果。此路径没有另设异步任务创建、
   查询或取消接口。

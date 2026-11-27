@@ -137,6 +137,7 @@ func TestOpenRouterImageRejectsUnsupportedRequests(t *testing.T) {
 		`{"model":"openai/gpt-image-2","prompt":"edit","image":[{"type":"video_url","image_url":{"url":"https://example.com/private.png?token=not-a-real-secret"}}]}`,
 		`{"model":"openai/gpt-image-2","prompt":"edit","image":"https://example.com/a.png","mask":"https://example.com/mask.png"}`,
 		`{"model":"openai/gpt-image-2","prompt":"edit","image":"https://example.com/a.png","n":11}`,
+		`{"model":"openai/gpt-image-2","prompt":"edit","image":"https://example.com/a.png","stream":true}`,
 	} {
 		t.Run(body, func(t *testing.T) {
 			c, _ := gin.CreateTestContext(httptest.NewRecorder())

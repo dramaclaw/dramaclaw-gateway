@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -48,9 +47,6 @@ func OpenaiImageHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.
 
 	if oaiError := usageResp.GetOpenAIError(); oaiError != nil && oaiError.Type != "" {
 		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
-	}
-	if err := validateOpenRouterImageData(info, responseBody); err != nil {
-		return &usageResp.Usage, err
 	}
 
 	updateOpenAIImageCount(info, gjson.GetBytes(responseBody, "data.#").Int())
@@ -116,7 +112,6 @@ func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 	usage := &dto.Usage{}
 	var lastStreamData []byte
 	var completedImages int64
-	isOpenRouter := info != nil && info.ChannelMeta != nil && info.ChannelType == constant.ChannelTypeOpenRouter
 
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
 		raw := common.StringToByteSlice(data)
@@ -136,45 +131,18 @@ func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 				usage = &chunk.Usage
 			}
 			if chunk.Type == "image_generation.completed" || chunk.Type == "image_edit.completed" {
-				if !isOpenRouter || hasOpenRouterImageContent(gjson.ParseBytes(raw)) {
-					completedImages++
-				} else {
-					sr.Error(fmt.Errorf("OpenRouter completed event contained no image"))
-				}
+				completedImages++
 			}
 		}
-		var writeErr error
-		if isOpenRouter {
-			writeErr = writeOpenRouterImageStreamData(c, gjson.GetBytes(raw, "type").String(), data)
-		} else {
-			writeErr = writeOpenaiImageStreamChunk(c, raw)
-		}
-		if writeErr != nil {
-			sr.Stop(writeErr)
+		if err := writeOpenaiImageStreamChunk(c, raw); err != nil {
+			sr.Stop(err)
 		}
 	})
-	if isOpenRouter {
-		status := info.StreamStatus
-		// OpenRouter bills a completed image or nothing. Return an API error
-		// before settlement so the controller refunds the existing reservation.
-		if status == nil || status.HasErrors() || completedImages == 0 ||
-			(status.EndReason != relaycommon.StreamEndReasonDone && status.EndReason != relaycommon.StreamEndReasonEOF) {
-			return usage, incompleteOpenRouterImageError()
-		}
-	}
 
 	// StreamScannerHandler consumes the upstream [DONE]; re-emit it so the
 	// client still receives a terminal data: [DONE].
 	if info.StreamStatus != nil && info.StreamStatus.EndReason == relaycommon.StreamEndReasonDone {
-		if isOpenRouter {
-			if err := writeOpenRouterImageStreamData(c, "", "[DONE]"); err != nil {
-				// The upstream completed normally and all completed images were
-				// delivered. A failed final marker must not refund those images.
-				logger.LogWarn(c, fmt.Sprintf("completed OpenRouter image: final SSE marker write failed: %v", err))
-			}
-		} else {
-			helper.Done(c)
-		}
+		helper.Done(c)
 	}
 
 	applyUsagePostProcessing(info, usage, lastStreamData)
@@ -197,62 +165,6 @@ func OpenaiImageStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp 
 		}
 	}
 	return usage, nil
-}
-
-func incompleteOpenRouterImageError() *types.NewAPIError {
-	// Partial output may already have reached the client: retrying the model
-	// inside this request could create a second, independently billed image.
-	return types.NewOpenAIError(fmt.Errorf("OpenRouter image generation did not complete"),
-		types.ErrorCodeBadResponse, http.StatusBadGateway, types.ErrOptionWithSkipRetry())
-}
-
-func writeOpenRouterImageStreamData(c *gin.Context, eventType, data string) error {
-	if err := c.Request.Context().Err(); err != nil {
-		return err
-	}
-	// The shared render path discards write errors. Check each SSE frame write
-	// so failed delivery can reach the existing refund path.
-	var eventLine string
-	if eventType != "" {
-		eventType = strings.ReplaceAll(strings.ReplaceAll(eventType, "\r", "\\r"), "\n", "\\n")
-		eventLine = "event: " + eventType + "\n"
-	}
-	for _, part := range []string{eventLine, "data: ", strings.ReplaceAll(data, "\r", "\\r"), "\n\n"} {
-		written, err := io.WriteString(c.Writer, part)
-		if err != nil {
-			return err
-		}
-		if written != len(part) {
-			return io.ErrShortWrite
-		}
-	}
-	return helper.FlushWriter(c)
-}
-
-func hasOpenRouterImageContent(image gjson.Result) bool {
-	for _, field := range []string{"b64_json", "url"} {
-		value := image.Get(field)
-		if value.Type == gjson.String && value.Str != "" {
-			return true
-		}
-	}
-	return false
-}
-
-func validateOpenRouterImageData(info *relaycommon.RelayInfo, body []byte) *types.NewAPIError {
-	if info == nil || info.ChannelMeta == nil || info.ChannelType != constant.ChannelTypeOpenRouter {
-		return nil
-	}
-	images := gjson.GetBytes(body, "data")
-	if !images.IsArray() || len(images.Array()) == 0 {
-		return incompleteOpenRouterImageError()
-	}
-	for _, image := range images.Array() {
-		if !hasOpenRouterImageContent(image) {
-			return incompleteOpenRouterImageError()
-		}
-	}
-	return nil
 }
 
 // writeOpenaiImageStreamChunk rebuilds the SSE frame for an image stream chunk:
@@ -341,10 +253,6 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 	applyUsagePostProcessing(info, &usageResp.Usage, responseBody)
 
 	imageCount := gjson.GetBytes(responseBody, "data.#").Int()
-	isOpenRouter := info != nil && info.ChannelMeta != nil && info.ChannelType == constant.ChannelTypeOpenRouter
-	if err := validateOpenRouterImageData(info, responseBody); err != nil {
-		return &usageResp.Usage, err
-	}
 	updateOpenAIImageCount(info, imageCount)
 
 	helper.SetEventStreamHeaders(c)
@@ -383,11 +291,7 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 		// b64_json goes last: every sjson.Set* reallocates the whole payload,
 		// so inserting the large blob after all small fields avoids re-copying
 		// multi-MB buffers.
-		fields := []string{"url", "revised_prompt", "b64_json"}
-		if isOpenRouter {
-			fields = []string{"url", "revised_prompt", "media_type", "b64_json"}
-		}
-		for _, field := range fields {
+		for _, field := range []string{"url", "revised_prompt", "b64_json"} {
 			value := image.Get(field)
 			if value.Type != gjson.String || value.Raw == `""` {
 				continue
@@ -401,39 +305,18 @@ func openaiImageJSONAsStreamHandler(c *gin.Context, info *relaycommon.RelayInfo,
 				return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 			}
 		}
-		var writeErr error
-		if isOpenRouter {
-			writeErr = writeOpenRouterImageStreamData(c, "image_generation.completed", string(payload))
-		} else {
-			writeErr = helper.ResponseChunkData(c, dto.ResponsesStreamResponse{Type: "image_generation.completed"}, string(payload))
-		}
-		if writeErr != nil {
+		if writeErr := helper.ResponseChunkData(c, dto.ResponsesStreamResponse{Type: "image_generation.completed"}, string(payload)); writeErr != nil {
 			if info != nil && info.StreamStatus != nil {
 				info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, writeErr)
 			}
-			if isOpenRouter {
-				return &usageResp.Usage, incompleteOpenRouterImageError()
-			}
 			return &usageResp.Usage, nil
 		}
 	}
-	var doneErr error
-	if isOpenRouter {
-		doneErr = writeOpenRouterImageStreamData(c, "", "[DONE]")
-	} else {
-		doneErr = writeOpenaiImageStreamDone(c)
-	}
-	if doneErr != nil {
-		if isOpenRouter {
-			// The complete upstream JSON and every image were already received
-			// and delivered. Keep the successful usage and image-count settlement.
-			logger.LogWarn(c, fmt.Sprintf("completed OpenRouter image: final SSE marker write failed: %v", doneErr))
-		} else {
-			if info != nil && info.StreamStatus != nil {
-				info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, doneErr)
-			}
-			return &usageResp.Usage, nil
+	if err := writeOpenaiImageStreamDone(c); err != nil {
+		if info != nil && info.StreamStatus != nil {
+			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, err)
 		}
+		return &usageResp.Usage, nil
 	}
 	if info != nil {
 		info.ReceivedResponseCount += int(imageCount)
