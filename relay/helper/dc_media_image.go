@@ -20,7 +20,9 @@ func normalizeDCMediaImageRequest(request *dto.ImageRequest) error {
 	if strings.EqualFold(ratio, "adaptive") {
 		ratio = "auto"
 	}
-	if ratio == "auto" && (request.Width > 0 || strings.TrimSpace(request.Size) != "") {
+	size := strings.TrimSpace(request.Size)
+	fixedSize := size != "" && !strings.EqualFold(size, "auto")
+	if ratio == "auto" && (request.Width > 0 || fixedSize) {
 		return fmt.Errorf("fixed dimensions cannot be combined with metadata.ratio=auto")
 	}
 	if request.Width > 0 {
