@@ -595,6 +595,19 @@ provider limits before dispatch, preserve explicit zero and false values, and
 return stable sanitized errors. Voice Design adapters also parse a non-empty
 `voice`, preserve credential ownership, and normalize preview audio.
 
+### 10.4 Persistent Voices and Raw Audio Streaming (Optional Extension)
+
+This extension does not change the text-based Voice Design endpoint or its temporary-resource behavior. Both gateway and client must explicitly support it; this document does not imply support in every deployment or CE client.
+
+- `POST /v1/audio/voices` accepts multipart fields `file`, `name`, `model`, `target_model`, and `consent=true`, with optional `language` and `preferred_name`. The initial RelayClaw implementation accepts mono PCM16 WAV at 16/24/48kHz, 3-30 seconds, at most 5MiB, within a 10MiB request. Provider audio conversion stays inside the gateway; clients do not supply provider credentials or asset endpoints.
+- Creation requires `Idempotency-Key`. Identical input under the same identity and key reuses the existing record without another creation or charge. Different input with the same key is rejected. An ambiguous debit after a crash requires reconciliation; a missing voice ID is not permission to debit again.
+- Responses include a stable gateway `voice_id`, bound `channel_id`, `target_model`, `lifecycle=persistent`, `status`, and `ready`, never the raw provider voice ID or key. Acceptance may return 202. Readiness must be confirmed; `unknown` is not a failed terminal state.
+- `GET /v1/audio/voices` lists the caller's records with pagination. `GET /v1/audio/voices/{voice_id}` retrieves details and readiness, `PATCH` updates JSON `name`, and `DELETE` removes the owned resource. All operations enforce user and application-subject isolation. Numeric management IDs remain compatibility inputs only.
+- For subsequent `/v1/audio/speech`, `voice` contains the stable gateway ID. Optional `channel_id` validates the stored binding and cannot override routing. Channel, provider credential, model, and group authorization must match.
+- Speech Profile adds optional boolean `stream`. Supported models return raw audio chunks for `stream=true`, not SSE or JSON; `response_format` still selects the encoding. Do not append JSON errors or automatically switch channels after audio begins. Clients must handle interrupted streams.
+- Voice concurrency is a gateway capability. The initial RelayClaw implementation serializes use of each voice and returns 409 on conflict. Successful persistent-voice synthesis does not consume or delete the voice.
+- Creation and synthesis are billed separately. Ambiguous results retain reconciliation state and reservations rather than automatically repeating charges or refunding. Source-recording retention and voice-resource retention are separate concerns.
+
 ## 11. Responses and Task Status
 
 ### 11.1 Image Response
