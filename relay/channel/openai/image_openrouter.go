@@ -42,6 +42,9 @@ func openRouterImagePayload(c *gin.Context, request dto.ImageRequest, edit bool)
 	if request.Quality != "" {
 		payload["quality"] = request.Quality
 	}
+	if request.ResponseFormat != "" {
+		payload["response_format"] = request.ResponseFormat
+	}
 	if request.Stream != nil {
 		payload["stream"] = *request.Stream
 	}
@@ -100,6 +103,13 @@ func openRouterImagePayload(c *gin.Context, request dto.ImageRequest, edit bool)
 			return nil, err
 		}
 		references = append(references, files...)
+	}
+	switch payload["response_format"] {
+	case nil, "url", "b64_json":
+	case "":
+		delete(payload, "response_format")
+	default:
+		return nil, fmt.Errorf("OpenRouter image response_format must be url or b64_json")
 	}
 	if len(references) > 0 {
 		payload["input_references"] = references
@@ -163,7 +173,7 @@ func openRouterMultipartImages(c *gin.Context, payload map[string]any) ([]any, e
 	if len(form.File["mask"]) > 0 || len(form.Value["mask"]) > 0 {
 		return nil, fmt.Errorf("OpenRouter image adapter does not support OpenAI masks")
 	}
-	for _, key := range []string{"output_format", "background", "user", "resolution", "aspect_ratio"} {
+	for _, key := range []string{"output_format", "background", "user", "resolution", "aspect_ratio", "response_format"} {
 		if values := form.Value[key]; len(values) > 0 {
 			payload[key] = values[0]
 		}

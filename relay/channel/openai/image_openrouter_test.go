@@ -60,13 +60,19 @@ func TestOpenRouterImageJSONConversion(t *testing.T) {
 			name: "generation keeps supported explicit zero and false values",
 			mode: relayconstant.RelayModeImagesGenerations,
 			body: `{"model":"LingShan-G2","prompt":"a cat","n":2,"size":"1024x1024","quality":"high","stream":false,"seed":0,"output_compression":0,"output_format":"png","watermark":false,"response_format":"url","style":"vivid"}`,
-			want: `{"model":"openai/gpt-image-2","prompt":"a cat","n":2,"size":"1024x1024","quality":"high","stream":false,"seed":0,"output_compression":0,"output_format":"png"}`,
+			want: `{"model":"openai/gpt-image-2","prompt":"a cat","n":2,"size":"1024x1024","quality":"high","stream":false,"seed":0,"output_compression":0,"output_format":"png","response_format":"url"}`,
 		},
 		{
 			name: "CE reference images and pixel dimensions",
 			mode: relayconstant.RelayModeImagesEdits,
 			body: `{"model":"LingShan-G2","prompt":"retain the subject","image":["https://example.com/a.png","https://example.com/b.png"],"width":688,"height":1024,"metadata":{"ratio":"2:3","resolution":"1k"},"response_format":"url"}`,
-			want: `{"model":"openai/gpt-image-2","prompt":"retain the subject","n":1,"aspect_ratio":"2:3","resolution":"1K","input_references":[{"type":"image_url","image_url":{"url":"https://example.com/a.png"}},{"type":"image_url","image_url":{"url":"https://example.com/b.png"}}]}`,
+			want: `{"model":"openai/gpt-image-2","prompt":"retain the subject","n":1,"aspect_ratio":"2:3","resolution":"1K","response_format":"url","input_references":[{"type":"image_url","image_url":{"url":"https://example.com/a.png"}},{"type":"image_url","image_url":{"url":"https://example.com/b.png"}}]}`,
+		},
+		{
+			name: "explicit inline base64 response format",
+			mode: relayconstant.RelayModeImagesGenerations,
+			body: `{"model":"LingShan-G2","prompt":"a cat","response_format":"b64_json"}`,
+			want: `{"model":"openai/gpt-image-2","prompt":"a cat","n":1,"response_format":"b64_json"}`,
 		},
 		{
 			name: "single reference and automatic ratio",
@@ -138,6 +144,7 @@ func TestOpenRouterImageRejectsUnsupportedRequests(t *testing.T) {
 		`{"model":"openai/gpt-image-2","prompt":"edit","image":"https://example.com/a.png","mask":"https://example.com/mask.png"}`,
 		`{"model":"openai/gpt-image-2","prompt":"edit","image":"https://example.com/a.png","n":11}`,
 		`{"model":"openai/gpt-image-2","prompt":"edit","image":"https://example.com/a.png","stream":true}`,
+		`{"model":"openai/gpt-image-2","prompt":"edit","image":"https://example.com/a.png","response_format":"unsupported"}`,
 	} {
 		t.Run(body, func(t *testing.T) {
 			c, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -215,6 +222,7 @@ func TestOpenRouterMultipartImageRetryPreservesOriginalRequest(t *testing.T) {
 
 func TestOpenRouterImageGenerationHTTPRoundTrip(t *testing.T) {
 	service.InitHttpClient()
+	const responseBody = `{"data":[{"url":"https://example.com/generated.png?signature=fixture","media_type":"image/png"}],"expires_at":1710086400}`
 	type capturedRequest struct {
 		path, contentType string
 		body              []byte
@@ -225,12 +233,13 @@ func TestOpenRouterImageGenerationHTTPRoundTrip(t *testing.T) {
 		body, err := io.ReadAll(r.Body)
 		received <- capturedRequest{r.URL.Path, r.Header.Get("Content-Type"), body, err}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"data":[{"b64_json":"aW1hZ2U=","media_type":"image/png"}]}`)
+		_, _ = io.WriteString(w, responseBody)
 	}))
 	defer upstream.Close()
 
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{"model":"LingShan-G2","prompt":"a cat","n":1}`))
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{"model":"LingShan-G2","prompt":"a cat","n":1,"response_format":"url"}`))
 	c.Request.Header.Set("Content-Type", "application/json")
 	request, err := helper.GetAndValidOpenAIImageRequest(c, relayconstant.RelayModeImagesGenerations)
 	require.NoError(t, err)
@@ -248,18 +257,21 @@ func TestOpenRouterImageGenerationHTTPRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	httpResp, ok := resp.(*http.Response)
 	require.True(t, ok)
-	defer httpResp.Body.Close()
-	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
+	require.Equal(t, http.StatusOK, httpResp.StatusCode)
+	_, apiErr := adaptor.DoResponse(c, httpResp, info)
+	require.Nil(t, apiErr)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.JSONEq(t, responseBody, recorder.Body.String())
 	got := <-received
 	require.NoError(t, got.err)
 	assert.Equal(t, "/api/v1/images", got.path)
 	assert.Equal(t, "application/json", got.contentType)
-	assert.JSONEq(t, `{"model":"openai/gpt-image-2","prompt":"a cat","n":1}`, string(got.body))
+	assert.JSONEq(t, `{"model":"openai/gpt-image-2","prompt":"a cat","n":1,"response_format":"url"}`, string(got.body))
 }
 
 func TestOpenRouterMultipartImageHTTPRoundTrip(t *testing.T) {
 	service.InitHttpClient()
-	const responseBody = `{"created":1710000000,"data":[{"b64_json":"aW1hZ2U=","media_type":"image/png"}],"usage":{"prompt_tokens":3,"completion_tokens":4,"total_tokens":7}}`
+	const responseBody = `{"created":1710000000,"data":[{"url":"https://example.com/edited.png?signature=fixture","media_type":"image/png"}],"expires_at":1710086400,"usage":{"prompt_tokens":3,"completion_tokens":4,"total_tokens":7}}`
 	type capturedRequest struct {
 		path, contentType, authorization string
 		body                             []byte
@@ -279,6 +291,7 @@ func TestOpenRouterMultipartImageHTTPRoundTrip(t *testing.T) {
 	require.NoError(t, writer.WriteField("model", "LingShan-G2"))
 	require.NoError(t, writer.WriteField("prompt", "paint the references"))
 	require.NoError(t, writer.WriteField("stream", "false"))
+	require.NoError(t, writer.WriteField("response_format", "url"))
 	// Input order is intentionally reversed: indexed references must keep
 	// their declared order rather than a Go map's iteration order.
 	for _, input := range []struct{ name, content string }{{"image[1]", "second"}, {"image[0]", "first"}} {
@@ -325,5 +338,5 @@ func TestOpenRouterMultipartImageHTTPRoundTrip(t *testing.T) {
 	assert.Equal(t, "/api/v1/images", got.path)
 	assert.Equal(t, "application/json", got.contentType)
 	assert.Equal(t, "Bearer test-openrouter-key", got.authorization)
-	assert.JSONEq(t, `{"model":"openai/gpt-image-2","prompt":"paint the references","n":1,"stream":false,"input_references":[{"type":"image_url","image_url":{"url":"data:image/png;base64,`+base64.StdEncoding.EncodeToString([]byte("first"))+`"}},{"type":"image_url","image_url":{"url":"data:image/png;base64,`+base64.StdEncoding.EncodeToString([]byte("second"))+`"}}]}`, string(got.body))
+	assert.JSONEq(t, `{"model":"openai/gpt-image-2","prompt":"paint the references","n":1,"stream":false,"response_format":"url","input_references":[{"type":"image_url","image_url":{"url":"data:image/png;base64,`+base64.StdEncoding.EncodeToString([]byte("first"))+`"}},{"type":"image_url","image_url":{"url":"data:image/png;base64,`+base64.StdEncoding.EncodeToString([]byte("second"))+`"}}]}`, string(got.body))
 }

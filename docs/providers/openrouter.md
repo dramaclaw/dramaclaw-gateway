@@ -54,10 +54,11 @@ base64 data URL；JSON 中的 HTTP(S) URL 和 data URL 可直接传递给上游�
 
 原生参数按允许列表传递，包括 `provider` 和 `seed`，同时保留显式的 `false` 或 `0`。
 开启全局或渠道请求体透传时，OpenRouter 图片请求仍会执行协议转换。
-OpenAI 的 `response_format` 不改变 OpenRouter 原生返回格式。
+JSON 和 multipart 请求都可用 `response_format` 指定 `url` 或 `b64_json`。
+省略时使用 OpenRouter 默认的 `b64_json`。请求 `url` 时，OpenRouter 也可能回退到 `b64_json`。
 
 OpenRouter 图片适配使用同步 JSON 响应。`stream: true` 返回 HTTP 400。
-响应中的 `data[].b64_json`、可选的 `media_type` 和 `usage` 沿用现有图片响应链路。
+响应中的 `data[].url` 或 `data[].b64_json`、可选的 `media_type` 和 `usage` 沿用现有图片响应链路。
 
 ## DramaClaw 几何参数
 
